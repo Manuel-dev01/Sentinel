@@ -1,0 +1,31 @@
+{
+  "name": "sentinel-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent-native parametric depeg insurance on Somnia (contracts + scripts workspace)",
+  "license": "MIT",
+  "scripts": {
+    "build": "hardhat compile && forge build",
+    "test": "forge test -vv",
+    "test:hh": "hardhat test",
+    "fmt": "forge fmt",
+    "deploy:testnet": "hardhat run script/deploy.ts --network somniaTestnet",
+    "simulate:depeg": "hardhat run script/simulate-depeg.ts --network somniaTestnet",
+    "spike:fire": "hardhat run script/spike.ts --network somniaTestnet"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@types/node": "^20.11.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2",
+    "@somnia-chain/reactivity-contracts": "latest"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["keccak", "secp256k1"]
+  }
+}

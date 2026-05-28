@@ -1,0 +1,66 @@
+# --- Engineering manual (internal; not for the public repo) ---
+CLAUDE.md
+.claude/
+
+# --- Env / secrets ---
+.env
+.env.local
+.env.*.local
+# .env.example IS committed (no leading dot exclusion needed thanks to the explicit name)
+!.env.example
+
+# --- Node / package managers ---
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Foundry ---
+out/
+cache/
+broadcast/
+.forge/
+lib/forge-std/
+# Keep forge-std as a git submodule or installed via forge install — don't commit the vendored copy
+# But the lib/ folder itself contains other deps we may want; gitignore tunable per-install
+
+# --- Hardhat ---
+artifacts/
+cache-hardhat/
+typechain-types/
+
+# --- Next.js / frontend ---
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+frontend/build/
+frontend/.vercel/
+frontend/.turbo/
+
+# --- TypeScript / build ---
+*.tsbuildinfo
+dist/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# --- Coverage / reports ---
+coverage/
+*.lcov
+lcov-report/
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Local secrets dumps ---
+*.pem
+*.key
