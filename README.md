@@ -100,9 +100,11 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 | Libraries | `Classification` (cause enum + agent-token parse), `FixedPoint` (1e18/bps), `PayoutMath` (the §5 matrix) | ✅ tested |
 | `SentinelRegistry` | Operator-managed insurable-stable config | ✅ tested |
 | `SentinelPool` | ERC-4626-style LP vault: NAV, premiums, utilization cap, withdrawal lock | ✅ unit + fuzz + invariant |
-| `SentinelPolicy` / `Treasury` / `Oracle` | Coverage NFT, payout execution, reactive orchestrator | ⬜ next |
+| `SentinelPolicy` | ERC-721 coverage: quote/buy, premium routing, min-age anti-farming, claim lifecycle | ✅ unit + fuzz |
+| `SentinelTreasury` | Payout-matrix execution: immediate (exploit) vs. vested/delayed; per-policy settle; reentrancy-guarded | ✅ unit + reentrancy |
+| `SentinelOracle` | Reactive detect→confirm→investigate→classify→route orchestrator | ⬜ next |
 
-**60 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences.
+**93 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences and a reentrancy-attack regression test on the payout path.
 
 **Both Somnia primitives are proven on-chain** — this is the project's core de-risking:
 
