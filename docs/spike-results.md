@@ -41,3 +41,25 @@ Event: USDx stablecoin vault drained via reentrancy exploit. 90% of reserves los
 
 ## Verdict
 ✅ **Both agents reached consensus.** Pivot risk #1 (LLM determinism) cleared empirically.
+
+---
+
+# M0 Reactivity Micro-Spike — 2026-05-29T20:12:04.615Z
+
+Proves the Somnia Reactivity round-trip: a price-feed event invokes the handler on-chain, no keeper.
+
+- Network: somniaTestnet
+- MockPriceOracle: [`0xDAC780EdD2a1c082b019d12952E3b93599da2A6C`](https://shannon-explorer.somnia.network/address/0xDAC780EdD2a1c082b019d12952E3b93599da2A6C)
+- SpikeReactivity (handler): [`0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9`](https://shannon-explorer.somnia.network/address/0xD6cB413c0E4a5839Fd4B02aFFeBF65e6868726b9)
+- subscriptionId: `3173993`
+- arm() tx: [`0x1ff5fd0458b0c5f83ee7deb87fe2e2163bed87353fe7af8e8cc73cfa42d46396`](https://shannon-explorer.somnia.network/tx/0x1ff5fd0458b0c5f83ee7deb87fe2e2163bed87353fe7af8e8cc73cfa42d46396)
+- setPrice() tx: [`0x12ff2a2cbd3b999e9a0d71930176316276a870bc8cfabcafef8de250bc6c2894`](https://shannon-explorer.somnia.network/tx/0x12ff2a2cbd3b999e9a0d71930176316276a870bc8cfabcafef8de250bc6c2894)
+- Handler funded: 33.0 STT (min 32.0)
+
+## Result
+- `_onEvent` fired: **true**
+- eventCount: 1
+- decoded asset: `0x000000000000000000000000000000000000dEaD` (match: true)
+- decoded price: 0.94 (match: true)
+
+✅ **Reactivity round-trip works.** Pushing a price triggered `_onEvent` with the correct decoded payload, with no off-chain keeper. The last Phase-0 platform unknown is cleared; SentinelOracle can rely on Reactivity for detection.

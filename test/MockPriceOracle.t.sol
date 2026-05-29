@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Test} from "forge-std/Test.sol";
-import {MockPriceOracle} from "../src/mocks/MockPriceOracle.sol";
+import { Test } from "forge-std/Test.sol";
+import { MockPriceOracle } from "../src/mocks/MockPriceOracle.sol";
 
 contract MockPriceOracleTest is Test {
     MockPriceOracle internal oracle;

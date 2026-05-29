@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IAgentPlatform, IAgentCallback, IJsonApiAgent} from "../interfaces/IAgentPlatform.sol";
+import { IAgentPlatform, IAgentCallback, IJsonApiAgent } from "../interfaces/IAgentPlatform.sol";
 
 /// @title SpikeJsonApi
 /// @notice Minimal Phase-0 / Step-3 spike. Fires one JSON API agent request, stores the
@@ -59,16 +59,18 @@ contract SpikeJsonApi is IAgentCallback {
     ///         the agent rejects it with "unknown function selector 0x00000000" (the bug the
     ///         first spike run hit). Sender must forward
     ///         platform.getRequestDeposit() + perAgentBudget × subcommitteeSize.
-    function fire(string calldata url, string calldata selector) external payable onlyOwner returns (uint256 requestId) {
+    function fire(string calldata url, string calldata selector)
+        external
+        payable
+        onlyOwner
+        returns (uint256 requestId)
+    {
         if (msg.value == 0) revert InsufficientValue();
 
         bytes memory payload = abi.encodeWithSelector(IJsonApiAgent.fetchString.selector, url, selector);
 
-        requestId = platform.createRequest{value: msg.value}(
-            JSON_API_AGENT_ID,
-            address(this),
-            this.handleResponse.selector,
-            payload
+        requestId = platform.createRequest{ value: msg.value }(
+            JSON_API_AGENT_ID, address(this), this.handleResponse.selector, payload
         );
 
         lastRequestId = requestId;
@@ -117,5 +119,5 @@ contract SpikeJsonApi is IAgentCallback {
     }
 
     /// @notice Accept the unused-deposit rebate from the platform.
-    receive() external payable {}
+    receive() external payable { }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IAgentPlatform, IAgentCallback, ILlmInferenceAgent} from "../interfaces/IAgentPlatform.sol";
+import { IAgentPlatform, IAgentCallback, ILlmInferenceAgent } from "../interfaces/IAgentPlatform.sol";
 
 /// @title SpikeLlmInference
 /// @notice Phase-0 / Step-3 spike for the principal pivot risk in CLAUDE.md §20:
@@ -75,11 +75,8 @@ contract SpikeLlmInference is IAgentCallback {
         bytes memory payload =
             abi.encodeWithSelector(ILlmInferenceAgent.inferString.selector, prompt, "", false, allowedValues);
 
-        requestId = platform.createRequest{value: msg.value}(
-            LLM_INFERENCE_AGENT_ID,
-            address(this),
-            this.handleResponse.selector,
-            payload
+        requestId = platform.createRequest{ value: msg.value }(
+            LLM_INFERENCE_AGENT_ID, address(this), this.handleResponse.selector, payload
         );
 
         lastRequestId = requestId;
@@ -125,5 +122,5 @@ contract SpikeLlmInference is IAgentCallback {
     }
 
     /// @notice Accept the unused-deposit rebate from the platform.
-    receive() external payable {}
+    receive() external payable { }
 }

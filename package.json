@@ -11,7 +11,8 @@
     "fmt": "forge fmt",
     "deploy:testnet": "hardhat run script/deploy.ts --network somniaTestnet",
     "simulate:depeg": "hardhat run script/simulate-depeg.ts --network somniaTestnet",
-    "spike:fire": "hardhat run script/spike.ts --network somniaTestnet"
+    "spike:fire": "hardhat run script/spike.ts --network somniaTestnet",
+    "spike:reactivity": "hardhat run script/spike-reactivity.ts --network somniaTestnet"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

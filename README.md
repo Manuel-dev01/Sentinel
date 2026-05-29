@@ -88,16 +88,31 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 |---|---|
 | **0 · Verify & scaffold** | ✅ Done — Foundry + Hardhat + Next.js on Somnia testnet; live docs verified |
 | **0 · Riskiest-path spike** | ✅ **Passed (2026-05-29)** — both agents reached validator consensus on testnet ([`docs/spike-results.md`](docs/spike-results.md)) |
-| **2 · Core engine** | ⬜ Next — Oracle → Pool → Treasury → Policy |
+| **2 · Core engine** | 🚧 In progress — both Somnia primitives proven on-chain; foundations + LP pool built & tested |
 | **3 · Frontend** | ⬜ — peg dashboard, policies, LP, audit trail |
 | **4 · Harden & ship** | ⬜ — fuzz/invariants, video, submission |
 
-**Spike proof (what's already real on-chain):** A minimal request contract called Somnia's **JSON API agent** (consensus on a live price feed → `0.9980`) and its **LLM Inference agent** (Qwen3-30B), which classified a simulated depeg as `SMART_CONTRACT_EXPLOIT` with **both validators agreeing byte-for-byte**. This clears the project's single biggest technical risk — that AI classification couldn't reach on-chain consensus — before any business logic was written.
+**Phase 2 progress** (bottom-up by dependency — `Registry`/libs → `Pool` → `Policy` → `Treasury` → `Oracle`):
 
-| Spike stage | Agent ID | Result | Tx |
-|---|---|---|---|
-| JSON API | `13174292974160097713` | consensus `0.9980` | [`0x8eb8a3ca…66fcb`](https://shannon-explorer.somnia.network/tx/0x8eb8a3ca4b1e42091d0b15df8cb577abfb65fe23235e677c4b538b6fb0c66fcb) |
-| LLM Inference | `12847293847561029384` | consensus `SMART_CONTRACT_EXPLOIT` | [`0x416164a0…566d`](https://shannon-explorer.somnia.network/tx/0x416164a07c4b811b77a76e6421aa0580c01ebbf29ea16c98da331bdf0406566d) |
+| Step | What | State |
+|---|---|---|
+| Reactivity micro-spike | On-chain `_onEvent` fires on a price update, no keeper | ✅ proven on testnet |
+| Libraries | `Classification` (cause enum + agent-token parse), `FixedPoint` (1e18/bps), `PayoutMath` (the §5 matrix) | ✅ tested |
+| `SentinelRegistry` | Operator-managed insurable-stable config | ✅ tested |
+| `SentinelPool` | ERC-4626-style LP vault: NAV, premiums, utilization cap, withdrawal lock | ✅ unit + fuzz + invariant |
+| `SentinelPolicy` / `Treasury` / `Oracle` | Coverage NFT, payout execution, reactive orchestrator | ⬜ next |
+
+**60 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences.
+
+**Both Somnia primitives are proven on-chain** — this is the project's core de-risking:
+
+| Primitive | What was proven | Tx |
+|---|---|---|
+| Agents · JSON API (`13174…0097713`) | consensus on a live price feed → `0.9980` | [`0x8eb8a3ca…66fcb`](https://shannon-explorer.somnia.network/tx/0x8eb8a3ca4b1e42091d0b15df8cb577abfb65fe23235e677c4b538b6fb0c66fcb) |
+| Agents · LLM Inference (`12847…1029384`) | Qwen3-30B classified a depeg as `SMART_CONTRACT_EXPLOIT`, **both validators byte-identical** | [`0x416164a0…566d`](https://shannon-explorer.somnia.network/tx/0x416164a07c4b811b77a76e6421aa0580c01ebbf29ea16c98da331bdf0406566d) |
+| Reactivity | a price-feed event invoked the handler on-chain with the correct decoded payload, **no off-chain keeper** | [`0x1ff5fd04…46396`](https://shannon-explorer.somnia.network/tx/0x1ff5fd0458b0c5f83ee7deb87fe2e2163bed87353fe7af8e8cc73cfa42d46396) |
+
+Consensus-validated AI classification + keeperless on-chain detection are the two things that make Sentinel possible, and both now work on testnet — before any business logic depended on them.
 
 ## Deployed addresses (Somnia testnet)
 
