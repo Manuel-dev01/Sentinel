@@ -90,3 +90,48 @@ interface IAgentCallback {
         IAgentPlatform.Request memory details
     ) external;
 }
+
+/// @notice Method surface of the JSON API Request agent (id 13174292974160097713).
+/// @dev    The `payload` passed to createRequest is treated as CALLDATA: the first 4 bytes
+///         are the agent-method selector, the rest are the ABI-encoded args. Build it with
+///         `abi.encodeWithSelector(IJsonApiAgent.fetchString.selector, url, selector)` — NOT
+///         a bare `abi.encode(...)` (that has no selector → "unknown function selector 0x00000000").
+///         `selector` here is a dot-path into the JSON response, e.g. "price" or "bitcoin.usd"
+///         (no leading `$.`). Verified against docs.somnia.network/agents/base-agents/json-api-request
+///         and /agents/invoking-agents/from-solidity (2026-05-29 spike).
+interface IJsonApiAgent {
+    function fetchString(string calldata url, string calldata selector) external returns (string memory);
+    function fetchUint(string calldata url, string calldata selector, uint8 decimals) external returns (uint256);
+    function fetchInt(string calldata url, string calldata selector, uint8 decimals) external returns (int256);
+    function fetchBool(string calldata url, string calldata selector) external returns (bool);
+    function fetchStringArray(string calldata url, string calldata selector) external returns (string[] memory);
+    function fetchUintArray(string calldata url, string calldata selector, uint8 decimals)
+        external
+        returns (uint256[] memory);
+}
+
+/// @notice Method surface of the LLM Inference agent (Qwen3-30B, id 12847293847561029384).
+/// @dev    Same calldata-with-selector convention as the JSON API agent.
+///         Verified against docs.somnia.network/agents/base-agents/llm-inference (2026-05-29).
+///         `inferString` is the classification workhorse: pass `allowedValues` to CONSTRAIN the
+///         model to return exactly one of a fixed set (e.g. the Classification enum tokens) — this
+///         is what makes subcommittee consensus achievable. Keep `chainOfThought=false` so the
+///         output is just the token (no reasoning preamble to diverge on).
+///         `system` is an optional system prompt ("" if unused).
+interface ILlmInferenceAgent {
+    function inferString(
+        string calldata prompt,
+        string calldata system,
+        bool chainOfThought,
+        string[] calldata allowedValues
+    ) external returns (string memory response);
+
+    /// @dev Numeric variant with clamping — not used by the spike, kept for the Oracle later.
+    function inferNumber(
+        string calldata prompt,
+        string calldata system,
+        int256 minValue,
+        int256 maxValue,
+        bool chainOfThought
+    ) external returns (int256 response);
+}

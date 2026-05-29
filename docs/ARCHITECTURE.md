@@ -95,9 +95,11 @@ sequenceDiagram
     end
 ```
 
-**Determinism requirement.** For the LLM-Inference call to reach subcommittee consensus, every validator must produce the same output. Prompts therefore demand a single token or strict minimal JSON (just the enum value). This constraint is documented at each agent call site. If determinism proves unreliable, the fallback is to have agents extract structured evidence and perform the classification logic on-chain.
+**Determinism requirement — validated on testnet (2026-05-29).** For the LLM-Inference call to reach subcommittee consensus, every validator must produce the same output. The spike proved this works: calling `inferString(prompt, system, chainOfThought, allowedValues)` with `allowedValues` set to the fixed Classification token set and `chainOfThought = false` constrains the model to one token, and the subcommittee agreed (both validators returned `SMART_CONTRACT_EXPLOIT`). The classifier therefore passes the enum as `allowedValues` rather than relying on prose instructions. Fallback if a future model regresses: extract structured evidence and classify on-chain.
 
-**Deposit budgeting.** Agent requests are funded above the scheduled execution cost; under-funding causes validators to ignore the request. The Oracle holds a native-token balance for this and implements `receive()` to capture rebates of unused deposit.
+**Agent payload encoding.** The `payload` arg to `createRequest` is treated as **calldata**: a 4-byte agent-method selector followed by ABI-encoded args. Build it with `abi.encodeWithSelector(IAgent.method.selector, …)`, never a bare `abi.encode(...)` (which the agent rejects as `unknown function selector 0x00000000`). JSON-API selectors are bare dot-paths (`"price"`, no `$.`). Canonical interfaces: `src/interfaces/IAgentPlatform.sol`.
+
+**Deposit budgeting.** Agent requests are funded above `getRequestDeposit() + pricePerAgent × subcommitteeSize`; under-funding sets perAgentBudget≈0 and validators silently ignore the request. The Oracle holds a native-token balance for this and implements `receive()` to capture the median-cost rebate. Measured costs: JSON API ≈ 0.03 STT/validator, LLM Inference ≈ 0.07 STT/validator. The subcommittee finalizes on **majority (2 of 3)**, so callback logic must not hard-require all three responses.
 
 ## 4. Contract responsibilities
 
@@ -172,7 +174,9 @@ struct AgentContext {
 ## 8. Known limitations
 
 - Unaudited prototype; testnet only.
-- LLM-Inference determinism under consensus is the principal technical risk (see §3); mitigations are designed in but must be validated empirically.
+- ~~LLM-Inference determinism under consensus is the principal technical risk~~ — **validated on testnet 2026-05-29** (see §3 and `docs/spike-results.md`); the `allowedValues` constraint yields subcommittee consensus.
+- The full three-agent chain (confirm → investigate → classify) within a single block is not yet proven end-to-end; the spike fired agents individually. Sequential-block fallback is acceptable.
+- The Reactivity subscribe→`_onEvent` round-trip is not yet exercised (spike covered the agent platform only); verify when building `SentinelOracle`.
 - Single insured stablecoin in the MVP; multi-stable and real risk pricing are post-hackathon.
-- Reactivity may be testnet-only at build time; confirm mainnet availability before any production claim.
+- Reactivity mainnet availability unconfirmed; testnet (min stake 32 STT) is sufficient for the hackathon.
 - Performance figures (1M TPS) are Somnia-published benchmarks; sub-second finality and sub-cent fees are the load-bearing properties and are independently observable.

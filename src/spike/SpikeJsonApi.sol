@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IAgentPlatform, IAgentCallback} from "../interfaces/IAgentPlatform.sol";
+import {IAgentPlatform, IAgentCallback, IJsonApiAgent} from "../interfaces/IAgentPlatform.sol";
 
 /// @title SpikeJsonApi
 /// @notice Minimal Phase-0 / Step-3 spike. Fires one JSON API agent request, stores the
@@ -50,15 +50,19 @@ contract SpikeJsonApi is IAgentCallback {
         owner = msg.sender;
     }
 
-    /// @notice Fire a JSON API request against `url`, extracting `jsonPath` from the response.
+    /// @notice Fire a JSON API request against `url`, extracting `selector` from the response.
     /// @param  url       Public HTTP URL returning JSON the agent can fetch.
-    /// @param  jsonPath  Extraction path passed to the agent, e.g. "$.price".
-    /// @dev    Sender must forward enough native token to cover
+    /// @param  selector  Dot-path into the JSON response, e.g. "price" or "bitcoin.usd".
+    ///                   NO leading "$." — the agent uses bare dot-paths.
+    /// @dev    The payload is CALLDATA for the agent: a 4-byte method selector + ABI args.
+    ///         We call fetchString(url, selector). A bare abi.encode(...) has no selector and
+    ///         the agent rejects it with "unknown function selector 0x00000000" (the bug the
+    ///         first spike run hit). Sender must forward
     ///         platform.getRequestDeposit() + perAgentBudget × subcommitteeSize.
-    function fire(string calldata url, string calldata jsonPath) external payable onlyOwner returns (uint256 requestId) {
+    function fire(string calldata url, string calldata selector) external payable onlyOwner returns (uint256 requestId) {
         if (msg.value == 0) revert InsufficientValue();
 
-        bytes memory payload = abi.encode(url, "GET", jsonPath);
+        bytes memory payload = abi.encodeWithSelector(IJsonApiAgent.fetchString.selector, url, selector);
 
         requestId = platform.createRequest{value: msg.value}(
             JSON_API_AGENT_ID,

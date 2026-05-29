@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IAgentPlatform, IAgentCallback} from "../interfaces/IAgentPlatform.sol";
+import {IAgentPlatform, IAgentCallback, ILlmInferenceAgent} from "../interfaces/IAgentPlatform.sol";
 
 /// @title SpikeLlmInference
 /// @notice Phase-0 / Step-3 spike for the principal pivot risk in CLAUDE.md §20:
@@ -54,13 +54,26 @@ contract SpikeLlmInference is IAgentCallback {
         owner = msg.sender;
     }
 
-    /// @notice Fire one LLM Inference request with `prompt`.
-    /// @dev    Sender must forward enough native token to cover
+    /// @notice Fire one LLM Inference classification request.
+    /// @param  prompt        The event description to classify.
+    /// @param  allowedValues The fixed set the model MUST choose from (e.g. the Classification
+    ///                       enum tokens). Constraining the output is what makes the validator
+    ///                       subcommittee able to reach consensus — the whole pivot-risk test.
+    /// @dev    Payload is CALLDATA: 4-byte selector + ABI args (a bare abi.encode is rejected as
+    ///         "unknown function selector 0x00000000"). Calls
+    ///         inferString(prompt, system="", chainOfThought=false, allowedValues).
+    ///         chainOfThought=false keeps the output to just the token. Sender must forward
     ///         platform.getRequestDeposit() + perAgentBudget × subcommitteeSize.
-    function fire(string calldata prompt) external payable onlyOwner returns (uint256 requestId) {
+    function fire(string calldata prompt, string[] calldata allowedValues)
+        external
+        payable
+        onlyOwner
+        returns (uint256 requestId)
+    {
         if (msg.value == 0) revert InsufficientValue();
 
-        bytes memory payload = abi.encode(prompt);
+        bytes memory payload =
+            abi.encodeWithSelector(ILlmInferenceAgent.inferString.selector, prompt, "", false, allowedValues);
 
         requestId = platform.createRequest{value: msg.value}(
             LLM_INFERENCE_AGENT_ID,

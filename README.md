@@ -82,9 +82,26 @@ cd frontend && npm run dev
 
 You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) for deployment and agent-request deposits.
 
+## Build status
+
+| Phase | State |
+|---|---|
+| **0 · Verify & scaffold** | ✅ Done — Foundry + Hardhat + Next.js on Somnia testnet; live docs verified |
+| **0 · Riskiest-path spike** | ✅ **Passed (2026-05-29)** — both agents reached validator consensus on testnet ([`docs/spike-results.md`](docs/spike-results.md)) |
+| **2 · Core engine** | ⬜ Next — Oracle → Pool → Treasury → Policy |
+| **3 · Frontend** | ⬜ — peg dashboard, policies, LP, audit trail |
+| **4 · Harden & ship** | ⬜ — fuzz/invariants, video, submission |
+
+**Spike proof (what's already real on-chain):** A minimal request contract called Somnia's **JSON API agent** (consensus on a live price feed → `0.9980`) and its **LLM Inference agent** (Qwen3-30B), which classified a simulated depeg as `SMART_CONTRACT_EXPLOIT` with **both validators agreeing byte-for-byte**. This clears the project's single biggest technical risk — that AI classification couldn't reach on-chain consensus — before any business logic was written.
+
+| Spike stage | Agent ID | Result | Tx |
+|---|---|---|---|
+| JSON API | `13174292974160097713` | consensus `0.9980` | [`0x8eb8a3ca…66fcb`](https://shannon-explorer.somnia.network/tx/0x8eb8a3ca4b1e42091d0b15df8cb577abfb65fe23235e677c4b538b6fb0c66fcb) |
+| LLM Inference | `12847293847561029384` | consensus `SMART_CONTRACT_EXPLOIT` | [`0x416164a0…566d`](https://shannon-explorer.somnia.network/tx/0x416164a07c4b811b77a76e6421aa0580c01ebbf29ea16c98da331bdf0406566d) |
+
 ## Deployed addresses (Somnia testnet)
 
-> _To be filled after deployment._
+> Core protocol contracts: _to be filled after Phase 2 deployment._ Spike contracts are in the table above.
 
 | Contract | Address |
 |---|---|
