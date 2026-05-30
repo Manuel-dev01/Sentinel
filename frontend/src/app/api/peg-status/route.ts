@@ -25,33 +25,43 @@ type Scenario = "exploit" | "bank-run" | "regulatory" | "glitch" | "pegged";
 
 const SCENARIOS: Record<Scenario, {
   price: string;
+  price_wad: string;
   deviation_bps: number;
   issuer_status: "incident" | "ok";
   issuer_disclosure: string;
 }> = {
+  // `price`     — human-readable decimal string (used by the Step-3 spike via fetchString).
+  // `price_wad` — the SAME price as an 18-decimal integer STRING, so the SentinelOracle confirm
+  //               stage can read it with `fetchUint(url, "price_wad", 0)` — no decimal-point parsing,
+  //               the value lands as a WAD directly comparable to the registry pegTarget (1e18).
+  //               (A JSON *number* this large would lose precision in JS, hence a string.)
   exploit: {
-    price: "0.9980",
-    deviation_bps: 200,
+    price: "0.9200",
+    price_wad: "920000000000000000",
+    deviation_bps: 800,
     issuer_status: "incident",
     issuer_disclosure:
       "Vault drained via reentrancy exploit. 90% of reserves lost. Investigation ongoing.",
   },
   "bank-run": {
-    price: "0.9920",
+    price: "0.9200",
+    price_wad: "920000000000000000",
     deviation_bps: 800,
     issuer_status: "incident",
     issuer_disclosure:
       "Coordinated redemption volume exceeds available reserves. Pausing new mints pending stabilization.",
   },
   regulatory: {
-    price: "0.9950",
+    price: "0.9500",
+    price_wad: "950000000000000000",
     deviation_bps: 500,
     issuer_status: "incident",
     issuer_disclosure:
       "Issuer entity received enforcement order. Wind-down of US-facing operations under review.",
   },
   glitch: {
-    price: "0.9980",
+    price: "0.9800",
+    price_wad: "980000000000000000",
     deviation_bps: 200,
     issuer_status: "incident",
     issuer_disclosure:
@@ -59,6 +69,7 @@ const SCENARIOS: Record<Scenario, {
   },
   pegged: {
     price: "1.0000",
+    price_wad: "1000000000000000000",
     deviation_bps: 0,
     issuer_status: "ok",
     issuer_disclosure: "No incident. Peg holds within tolerance.",

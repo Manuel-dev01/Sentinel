@@ -70,11 +70,11 @@ npm install                    # frontend + scripts deps
 
 forge build && forge test      # run the contract test suite
 
-# Deploy to Somnia testnet (see docs/ARCHITECTURE.md for the full runbook)
-npx hardhat run script/Deploy.s.sol --network somniaTestnet
+# Deploy + wire + seed the protocol on Somnia testnet (see docs/DEMO.md for the full runbook)
+pnpm deploy:testnet
 
-# Run the demo trigger
-npx ts-node script/simulate-depeg.ts
+# Run the demo trigger: push USDC below peg and watch the pipeline settle
+pnpm simulate:depeg
 
 # Frontend
 cd frontend && npm run dev
@@ -103,6 +103,7 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 | `SentinelPolicy` | ERC-721 coverage: quote/buy, premium routing, min-age anti-farming, claim lifecycle | ✅ unit + fuzz |
 | `SentinelTreasury` | Payout-matrix execution: immediate (exploit) vs. vested/delayed; per-policy settle; reentrancy-guarded | ✅ unit + reentrancy |
 | `SentinelOracle` | Reactive detect→confirm→investigate→classify→route orchestrator + 3-agent chain | ✅ integration (mock platform) |
+| Deploy + wire + simulate | `script/deploy.ts` (deploy 8 contracts, wire roles, register, fund+arm, seed, buy) + `script/simulate-depeg.ts` (trigger → pipeline → settle) | ✅ scripts ready — run `pnpm deploy:testnet` then `pnpm simulate:depeg` |
 
 **117 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences, a reentrancy-attack regression test on the payout path, and a full Oracle state-machine suite (24 tests) driven by a mock 3-validator agent platform (every `ResponseStatus` branch, callback idempotency, detection gating, and an agent-payload selector lock).
 

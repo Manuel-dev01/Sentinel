@@ -8,6 +8,40 @@ The 2–5 minute demo video is the single most important deliverable for both th
 
 The depeg trigger, the issuer "evidence," and the price basket are all controlled inputs in the demo. This is intentional: a live, repeatable trigger is worth more than a real feed for a recorded demo, and nothing should fail on camera. Realism is a post-hackathon concern.
 
+## 1a. One-command setup (M6 scripts)
+
+The whole environment is two scripts. From the repo root, with `.env` filled
+(`DEPLOYER_PRIVATE_KEY`, `AGENT_PLATFORM_ADDRESS`, `MOCK_ISSUER_URL`, and ideally `ISSUER_PAGE_URL`):
+
+```bash
+# 0. Deploy frontend/ to Vercel first so the agents have a public URL to read:
+#    cd frontend && vercel --prod
+#    → set MOCK_ISSUER_URL = https://<proj>.vercel.app/api/peg-status
+#    → set ISSUER_PAGE_URL = https://<proj>.vercel.app/issuer/incident
+
+# 1. Deploy + wire + seed everything (deploys 8 contracts, wires roles, registers USDC,
+#    sets the confirm feed, funds the Oracle with 34 STT, arms the subscription, seeds the
+#    LP pool, and buys one demo policy). Writes deployments/somniaTestnet.json.
+pnpm deploy:testnet
+
+# 2. Trigger the depeg and watch the autonomous pipeline settle.
+pnpm simulate:depeg
+```
+
+`deploy.ts` prints the `NEXT_PUBLIC_*` address block to paste into `frontend/.env.local`.
+`simulate-depeg.ts` reads `deployments/somniaTestnet.json`, pushes USDC to `DEPEG_PRICE`
+(default 0.92 = 800bps), and polls the on-chain state machine
+`Confirming → Investigating → Classifying → Classified`, then settles the policy and writes
+`docs/demo-run.md` with the tx hashes and elapsed time.
+
+**Two demo tokens, on purpose:** the LP pool / premiums / payouts use **sUSD** (the capital
+asset, which never depegs), while the **USDC** token is the insured stable that depegs. This keeps
+the thing losing its peg separate from the thing backing claims — exactly as a real pool would.
+
+**Funding note:** the Oracle owns its Reactivity subscription, so it must hold ≥32 STT *plus* the
+agent-request budget at `arm()` time. `deploy.ts` parks 34 STT in it by default
+(`ORACLE_FUNDING_STT`). The deployer therefore needs ~37+ STT for a clean run.
+
 ## 2. Pre-demo checklist
 
 - [ ] Contracts deployed to Somnia testnet; addresses recorded in `README.md`.

@@ -18,6 +18,10 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: { enabled: true, runs: 200 },
       viaIR: false,
+      // Match Foundry's default target. OpenZeppelin 5.x (Strings/Bytes via SentinelOracle) emits
+      // `mcopy`, a Cancun opcode; without this Hardhat targets "paris" and compilation fails.
+      // Somnia is full-EVM and the Cancun-compiled contracts deploy fine on testnet.
+      evmVersion: "cancun",
     },
   },
   paths: {
