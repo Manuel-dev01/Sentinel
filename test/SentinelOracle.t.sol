@@ -411,6 +411,45 @@ contract SentinelOracleTest is Test {
         oracle.retry(eventId);
     }
 
+    // ─────────────────────── failed events free the live slot (re-runnable) ───────────────────────
+
+    /// @notice A failed event must release the stable's live slot so a fresh depeg can be detected —
+    ///         otherwise a single failure permanently bricks detection for that stable (a later
+    ///         `setPrice` would silently no-op on the dedupe guard). Regression test for that bug.
+    function test_failed_event_frees_slot_for_new_detection() public {
+        _emit(stable, 0.98e18); // event 1 -> Confirming (req 1)
+        uint256 first = oracle.nextEventId() - 1;
+
+        platform.deliverFailed(1); // event 1 -> Failed
+        assertEq(uint8(oracle.getEvent(first).state), uint8(SentinelOracle.EventState.Failed));
+        assertEq(oracle.liveEventOf(stable), 0, "failed event frees the live slot");
+        assertEq(oracle.breachStartedAt(stable), 0, "failed event clears the breach timer");
+
+        // A fresh depeg now opens a NEW event instead of silently no-op'ing.
+        _emit(stable, 0.95e18);
+        uint256 second = oracle.nextEventId() - 1;
+        assertEq(second, first + 1, "a new event opens after a failure");
+        assertEq(oracle.liveEventOf(stable), second);
+    }
+
+    /// @notice `retry` re-acquires the freed slot, but must refuse if a newer event already holds it
+    ///         (the one-live-event-per-stable invariant survives the free-on-failure change).
+    function test_retry_reverts_when_stable_has_newer_live_event() public {
+        _emit(stable, 0.98e18); // event 1
+        uint256 first = oracle.nextEventId() - 1;
+        platform.deliverFailed(1); // event 1 Failed, slot freed
+
+        _emit(stable, 0.95e18); // event 2 opens, claims the slot
+        uint256 second = oracle.nextEventId() - 1;
+        assertEq(oracle.liveEventOf(stable), second);
+
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(SentinelOracle.StableHasLiveEvent.selector, stable, second)
+        );
+        oracle.retry(first);
+    }
+
     // ─────────────────────────────── utils ───────────────────────────────
 
     function _succ(bytes memory result) internal pure returns (IAgentPlatform.Response memory) {

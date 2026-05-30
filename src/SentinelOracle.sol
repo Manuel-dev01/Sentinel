@@ -235,6 +235,8 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
     event StageFailed(
         uint256 indexed eventId, uint256 indexed requestId, Stage stage, IAgentPlatform.ResponseStatus status
     );
+    /// @notice An event was parked in `Failed` and its stable's live slot freed (retriable).
+    event EventFailed(uint256 indexed eventId, address indexed stable, Stage stage);
     event StageUnfunded(uint256 indexed eventId, Stage stage, uint256 needed, uint256 balance);
     event StageDispatchFailed(uint256 indexed eventId, Stage stage);
     event UnknownCallback(uint256 indexed requestId);
@@ -255,6 +257,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
     error ZeroAddress();
     error UnknownEvent(uint256 eventId);
     error NotRetriable(uint256 eventId);
+    error StableHasLiveEvent(address stable, uint256 liveEventId);
     error ConfirmFeedMissing(address stable);
     error InsufficientBalance(uint256 have, uint256 want);
 
@@ -425,7 +428,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         }
 
         if (status != IAgentPlatform.ResponseStatus.Success) {
-            e.state = EventState.Failed;
+            _fail(ctx.eventId, e);
             emit StageFailed(ctx.eventId, requestId, ctx.stage, status);
             return;
         }
@@ -433,7 +436,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         bytes memory consensus = _consensusResult(responses);
         if (consensus.length == 0) {
             // Overall-Success but no usable agreed payload — treat as a failure rather than decode-revert.
-            e.state = EventState.Failed;
+            _fail(ctx.eventId, e);
             emit StageFailed(ctx.eventId, requestId, ctx.stage, IAgentPlatform.ResponseStatus.Failed);
             return;
         }
@@ -501,7 +504,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         ConfirmFeed memory feed = confirmFeeds[e.stable];
         if (bytes(feed.url).length == 0) {
             // No basket source configured — can't safely confirm; park for operator attention.
-            e.state = EventState.Failed;
+            _fail(eventId, e);
             emit StageDispatchFailed(eventId, Stage.Confirm);
             return;
         }
@@ -577,7 +580,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
 
         uint256 deposit = platform.getRequestDeposit() + (perAgentBudget * SUBCOMMITTEE_SIZE);
         if (address(this).balance < deposit) {
-            e.state = EventState.Failed;
+            _fail(eventId, e);
             emit StageUnfunded(eventId, stage, deposit, address(this).balance);
             return;
         }
@@ -591,16 +594,23 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
             e.pendingRequestId = requestId;
             emit AgentRequested(eventId, requestId, stage, agentId, deposit);
         } catch {
-            e.state = EventState.Failed;
+            _fail(eventId, e);
             emit StageDispatchFailed(eventId, stage);
         }
     }
 
     /// @notice Re-dispatch the in-flight stage of a `Failed` event (e.g. after funding or a transient
-    ///         platform error). Operator-only. Picks up exactly where the state machine stalled.
+    ///         platform error, or after the operator repointed an agent target). Operator-only. Picks
+    ///         up exactly where the state machine stalled.
+    /// @dev    A failed event frees the stable's live slot (see `_fail`), so re-acquire it here — and
+    ///         refuse if a newer event has since claimed the slot (one live event per stable, always).
     function retry(uint256 eventId) external onlyOwner {
         DepegEvent storage e = _events[eventId];
         if (e.state != EventState.Failed) revert NotRetriable(eventId);
+
+        uint256 live = liveEventOf[e.stable];
+        if (live != 0 && live != eventId) revert StableHasLiveEvent(e.stable, live);
+        liveEventOf[e.stable] = eventId;
 
         if (e.stage == Stage.Confirm) {
             e.state = EventState.Confirming;
@@ -650,6 +660,17 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         }
         // No strict majority agreed → not consensus.
         if (bestCount < majority) return "";
+    }
+
+    /// @dev Park an event in `Failed` and free the stable's live slot. Freeing the slot is essential:
+    ///      `_onEvent` dedupes on `liveEventOf[stable] != 0`, so a failed event that kept the slot
+    ///      would permanently block re-detection for that stable (a fresh `setPrice` would silently
+    ///      no-op). The operator can still `retry(eventId)` this same event — `retry` re-acquires the
+    ///      slot. This keeps the demo re-triggerable after any stage failure.
+    function _fail(uint256 eventId, DepegEvent storage e) private {
+        e.state = EventState.Failed;
+        _closeLive(e.stable);
+        emit EventFailed(eventId, e.stable, e.stage);
     }
 
     function _closeLive(address stable) private {
