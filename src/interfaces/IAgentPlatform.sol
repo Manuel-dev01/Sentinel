@@ -139,3 +139,47 @@ interface ILlmInferenceAgent {
         bool chainOfThought
     ) external returns (int256 response);
 }
+
+/// @notice Method surface of the LLM Parse Website agent (id 12875401142070969085).
+/// @dev    Verified 2026-05-30 against docs.somnia.network/agents/base-agents/llm-parse-website
+///         (two independent fetches). Same calldata-with-selector convention as the other agents:
+///         build with `abi.encodeWithSelector(IParseWebsiteAgent.ExtractString.selector, ...args)`.
+///         ⚠ Capitalization is selector-significant — it is `ExtractString` (capital E), NOT
+///         `extractString`/`parseString`; the wrong case yields a different 4-byte selector and the
+///         agent rejects it with "unknown function selector". Per-validator cost ≈0.10 STT.
+///
+///         `ExtractString` params:
+///           key                 field name to extract (e.g. "incident")
+///           description         field description for the LLM
+///           options             literal allowed values; pass an EMPTY array to leave unconstrained
+///           prompt              natural-language extraction prompt (also used as the search term)
+///           url                 base or direct URL
+///           resolveUrl          true = search the domain; false = scrape the direct URL
+///           numPages            max pages to fetch (capped at 1 when resolveUrl is false)
+///           confidenceThreshold 0–100 minimum extraction confidence required to return a result
+///         Response decodes to a single string via `abi.decode(result, (string))`.
+///         `ExtractANumber` is the numeric-clamped variant (kept for completeness/future use).
+interface IParseWebsiteAgent {
+    function ExtractString(
+        string calldata key,
+        string calldata description,
+        string[] calldata options,
+        string calldata prompt,
+        string calldata url,
+        bool resolveUrl,
+        uint8 numPages,
+        uint8 confidenceThreshold
+    ) external returns (string memory);
+
+    function ExtractANumber(
+        string calldata key,
+        string calldata description,
+        uint256 min,
+        uint256 max,
+        string calldata prompt,
+        string calldata url,
+        bool resolveUrl,
+        uint8 numPages,
+        uint8 confidenceThreshold
+    ) external returns (uint256);
+}

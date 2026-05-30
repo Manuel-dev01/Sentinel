@@ -88,7 +88,7 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 |---|---|
 | **0 · Verify & scaffold** | ✅ Done — Foundry + Hardhat + Next.js on Somnia testnet; live docs verified |
 | **0 · Riskiest-path spike** | ✅ **Passed (2026-05-29)** — both agents reached validator consensus on testnet ([`docs/spike-results.md`](docs/spike-results.md)) |
-| **2 · Core engine** | 🚧 In progress — both Somnia primitives proven on-chain; foundations + LP pool built & tested |
+| **2 · Core engine** | 🚧 Near complete — all five contracts built & tested; the Oracle ties detection→agents→payout end-to-end. Remaining: deploy + wire + live testnet `simulate-depeg` (M6) |
 | **3 · Frontend** | ⬜ — peg dashboard, policies, LP, audit trail |
 | **4 · Harden & ship** | ⬜ — fuzz/invariants, video, submission |
 
@@ -102,9 +102,9 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 | `SentinelPool` | ERC-4626-style LP vault: NAV, premiums, utilization cap, withdrawal lock | ✅ unit + fuzz + invariant |
 | `SentinelPolicy` | ERC-721 coverage: quote/buy, premium routing, min-age anti-farming, claim lifecycle | ✅ unit + fuzz |
 | `SentinelTreasury` | Payout-matrix execution: immediate (exploit) vs. vested/delayed; per-policy settle; reentrancy-guarded | ✅ unit + reentrancy |
-| `SentinelOracle` | Reactive detect→confirm→investigate→classify→route orchestrator | ⬜ next |
+| `SentinelOracle` | Reactive detect→confirm→investigate→classify→route orchestrator + 3-agent chain | ✅ integration (mock platform) |
 
-**93 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences and a reentrancy-attack regression test on the payout path.
+**117 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences, a reentrancy-attack regression test on the payout path, and a full Oracle state-machine suite (24 tests) driven by a mock 3-validator agent platform (every `ResponseStatus` branch, callback idempotency, detection gating, and an agent-payload selector lock).
 
 **Both Somnia primitives are proven on-chain** — this is the project's core de-risking:
 
