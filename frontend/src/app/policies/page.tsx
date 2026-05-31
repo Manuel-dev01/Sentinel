@@ -9,12 +9,14 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { CONTRACTS, INSURED, POLICY_STATUS } from "@/lib/contracts";
+import { CONTRACTS, STABLES, POLICY_STATUS } from "@/lib/contracts";
+import { useStable, StableSelector } from "@/lib/stables";
 import { fmtWad, fmtBpsPct } from "@/lib/format";
-import { CrossChainFund } from "@/components/CrossChainFund";
 
 const DAY = 86_400;
 const ZERO = "0x0000000000000000000000000000000000000000" as const;
+const symbolOf = (addr: string) =>
+  STABLES.find((s) => s.address.toLowerCase() === addr.toLowerCase())?.symbol ?? "USDx";
 
 type Policy = {
   holder: `0x${string}`;
@@ -29,6 +31,8 @@ type Policy = {
 
 export default function PoliciesPage() {
   const { address, isConnected } = useAccount();
+  const { selected } = useStable();
+  const insured = selected.address;
   const [notional, setNotional] = useState("100000");
   const [termDays, setTermDays] = useState("365");
 
@@ -39,14 +43,14 @@ export default function PoliciesPage() {
   const { data: premium } = useReadContract({
     ...CONTRACTS.policy,
     functionName: "quote",
-    args: [INSURED, notionalWei, termSec],
+    args: [insured, notionalWei, termSec],
     query: { enabled: notionalWei > 0n && termSec > 0n },
   });
   const premiumWei = (premium as bigint) ?? 0n;
 
   const { data: meta, refetch: refetchMeta } = useReadContracts({
     contracts: [
-      { ...CONTRACTS.registry, functionName: "getConfig", args: [INSURED] },
+      { ...CONTRACTS.registry, functionName: "getConfig", args: [insured] },
       { ...CONTRACTS.policy, functionName: "nextTokenId" },
       { ...CONTRACTS.capital, functionName: "balanceOf", args: [address ?? ZERO] },
       { ...CONTRACTS.capital, functionName: "allowance", args: [address ?? ZERO, CONTRACTS.policy.address] },
@@ -73,9 +77,8 @@ export default function PoliciesPage() {
   const verdict = evData?.[1]?.result as readonly [string, number, bigint, bigint, boolean] | undefined;
   // A claimable event exists when the last event is Classified for our insured stable + verdict recorded.
   const claimEventId =
-    lastEvent && lastEvent.state === 4 && lastEvent.stable.toLowerCase() === INSURED.toLowerCase() && verdict?.[4]
-      ? lastEventId
-      : 0n;
+    lastEvent && lastEvent.state === 4 && verdict?.[4] ? lastEventId : 0n;
+  const claimStable = lastEvent?.stable;
 
   // Scan minted token ids for the holder's policies.
   const ids = Array.from({ length: Math.max(0, Number(nextTokenId) - 1) }, (_, i) => BigInt(i + 1));
@@ -124,7 +127,7 @@ export default function PoliciesPage() {
     if (needApprove) {
       writeContract({ ...CONTRACTS.capital, functionName: "approve", args: [CONTRACTS.policy.address, maxUint256] }, { onSettled: after });
     } else {
-      writeContract({ ...CONTRACTS.policy, functionName: "buy", args: [INSURED, notionalWei, termSec] }, { onSettled: after });
+      writeContract({ ...CONTRACTS.policy, functionName: "buy", args: [insured, notionalWei, termSec] }, { onSettled: after });
     }
   };
   const settle = (tokenId: bigint) =>
@@ -157,12 +160,15 @@ export default function PoliciesPage() {
       <section className="grid-2">
         {/* Quote / buy */}
         <div className="section-pad" style={{ display: "grid", gap: 18 }}>
-          <h2 className="sec-title" style={{ fontSize: "clamp(22px,2.4vw,32px)" }}>Quote</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <h2 className="sec-title" style={{ fontSize: "clamp(22px,2.4vw,32px)" }}>Quote</h2>
+            <StableSelector />
+          </div>
           <div className="field">
-            <label className="field-label">Notional · USDC exposure</label>
+            <label className="field-label">Notional · {selected.symbol} exposure</label>
             <div className="input-row">
               <input className="input" inputMode="decimal" value={notional} onChange={(e) => setNotional(e.target.value)} />
-              <span className="input-suffix">USDC</span>
+              <span className="input-suffix">{selected.symbol}</span>
             </div>
           </div>
           <div className="field">
@@ -199,14 +205,15 @@ export default function PoliciesPage() {
               const payout = claimData?.[i * 2]?.result as bigint | undefined;
               const vesting = claimData?.[i * 2 + 1]?.result as readonly [bigint, bigint, boolean] | undefined;
               const nowS = BigInt(Math.floor(Date.now() / 1000));
-              const claimable = claimEventId > 0n && pol.stable.toLowerCase() === INSURED.toLowerCase();
+              const claimable =
+                claimEventId > 0n && !!claimStable && pol.stable.toLowerCase() === claimStable.toLowerCase();
               return (
                 <div key={id.toString()} className="panel" style={{ padding: 18, display: "grid", gap: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span className="kicker">POLICY #{id.toString()}</span>
+                    <span className="kicker">POLICY #{id.toString()} · {symbolOf(pol.stable)}</span>
                     <span className={`badge ${statusBadge(pol.status)}`}>{POLICY_STATUS[pol.status]}</span>
                   </div>
-                  <div className="kv"><span className="k">Notional</span><span className="v">{fmtWad(pol.notional)} USDC</span></div>
+                  <div className="kv"><span className="k">Notional</span><span className="v">{fmtWad(pol.notional)} {symbolOf(pol.stable)}</span></div>
                   <div className="kv"><span className="k">Premium paid</span><span className="v">{fmtWad(pol.premiumPaid)} sUSD</span></div>
                   <div className="kv"><span className="k">Term</span><span className="v">{(Number(pol.term) / DAY).toFixed(0)} days</span></div>
 
@@ -242,8 +249,6 @@ export default function PoliciesPage() {
           )}
         </div>
       </section>
-
-      <CrossChainFund blurb="Fund premiums from any chain." />
     </div>
   );
 }

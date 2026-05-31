@@ -1,4 +1,4 @@
-import { addresses, abis, chainId, deployment } from "./generated";
+import { addresses, abis, chainId, deployment, stables } from "./generated";
 
 /**
  * Typed contract registry for the app. Addresses come from the generated deployment
@@ -44,8 +44,19 @@ export const CONTRACTS = {
 
 export { chainId, deployment };
 
-/** The single insured stablecoin in the MVP (the one that depegs). */
-export const INSURED = CONTRACTS.insured.address;
+/** Insured stablecoins registered at deploy time (synced by gen-frontend.mjs from the artifact). */
+export type Stable = {
+  address: `0x${string}`;
+  symbol: string;
+  name: string;
+  annualRateBps: number;
+};
+export const STABLES: readonly Stable[] = (stables as readonly Stable[]).length
+  ? (stables as readonly Stable[])
+  : [{ address: CONTRACTS.insured.address, symbol: "USDx", name: "Insured", annualRateBps: 50 }];
+
+/** Default / primary insured stablecoin (the simulate-depeg target). */
+export const INSURED = STABLES[0].address;
 
 // ─────────────────────────── enum mirrors (order is contract-significant) ───────────────────────────
 
@@ -61,8 +72,8 @@ export const EVENT_STATE = [
 ] as const;
 export type EventStateName = (typeof EVENT_STATE)[number];
 
-/** SentinelOracle.Stage */
-export const STAGE = ["None", "Confirm", "Investigate", "Classify"] as const;
+/** SentinelOracle.Stage — Investigate2 is the second Parse-Website source (status feed). */
+export const STAGE = ["None", "Confirm", "Investigate", "Investigate2", "Classify"] as const;
 export type StageName = (typeof STAGE)[number];
 
 /** Classification.Cause */

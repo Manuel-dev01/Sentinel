@@ -1,21 +1,133 @@
 {
   "network": "somniaTestnet",
   "chainId": 50312,
-  "deployedAt": "2026-05-31T05:31:40.745Z",
+  "deployedAt": "2026-05-31T15:54:25.357Z",
   "operator": "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe",
   "agentPlatform": "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776",
   "issuerJsonUrl": "https://sentinel-issuer.vercel.app/api/peg-status",
   "issuerPageUrl": "https://sentinel-issuer.vercel.app/issuer/incident",
-  "subscriptionId": "3535096",
+  "issuerSocialUrl": "https://sentinel-issuer.vercel.app/issuer/social",
+  "subscriptionId": "3647477",
   "demoTokenId": "1",
+  "demoTokens": {
+    "USDC": "1",
+    "USDT": "2"
+  },
   "contracts": {
-    "capital": "0xBf51Db11C17B3288c3b347EcC13aa20605245D1e",
-    "insured": "0x71918476F55ebD185DC3E8ea8514c7F2C514A88a",
-    "priceOracle": "0x7e09120C5A06B2aC87CB324F864f11b520d3A593",
-    "registry": "0xBb4a01D4903bDD23E5e164E38eF988734667fdA8",
-    "pool": "0x1dB5c35a327338DD6d225617Dc5415d33c4002Fc",
-    "policy": "0x4966DDf7f8b74Ec07Dce1d148fe9B06702624F7E",
-    "treasury": "0x7a2259D0eAe3BF277b673dd08972762fD944e275",
-    "oracle": "0xd6Cfd84691DeE2C80B47c00c348cBa22636160cF"
-  }
+    "capital": "0x3e0075eFEb0a59faCAA4761332a4486984216Ca8",
+    "insured": "0xF09b39b62548879C314fA52fb1B7BF943d27238F",
+    "priceOracle": "0xd915c7a3253bD31253eCdfC84A1e1b3f0FB5377f",
+    "registry": "0xF85882800fBa17daa2AFf8e03908FE0dea24C232",
+    "pool": "0x87853d518172FD58C01476a9eC8425B54B009aaa",
+    "policy": "0xA4C5144b9815aa1308dBb13fa86510Baf0e00c54",
+    "treasury": "0x37099DAEdf3d13e079B5bbD83cdF2DcF1dd70cf5",
+    "oracle": "0xF308D880551D3F3526Cb0e6e1B36C828213aD1ab"
+  },
+  "stables": [
+    {
+      "address": "0xF09b39b62548879C314fA52fb1B7BF943d27238F",
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "annualRateBps": 50
+    },
+    {
+      "address": "0x004D79a2d6e86C0A8A5ec5b101Eb48595B602f87",
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "annualRateBps": 65
+    }
+  ],
+  "verify": [
+    {
+      "name": "capital",
+      "address": "0x3e0075eFEb0a59faCAA4761332a4486984216Ca8",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "Sentinel USD",
+        "sUSD",
+        18
+      ]
+    },
+    {
+      "name": "priceOracle",
+      "address": "0xd915c7a3253bD31253eCdfC84A1e1b3f0FB5377f",
+      "contract": "src/mocks/MockPriceOracle.sol:MockPriceOracle",
+      "args": [
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
+      ]
+    },
+    {
+      "name": "insured:USDC",
+      "address": "0xF09b39b62548879C314fA52fb1B7BF943d27238F",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "USD Coin",
+        "USDC",
+        18
+      ]
+    },
+    {
+      "name": "insured:USDT",
+      "address": "0x004D79a2d6e86C0A8A5ec5b101Eb48595B602f87",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "Tether USD",
+        "USDT",
+        18
+      ]
+    },
+    {
+      "name": "registry",
+      "address": "0xF85882800fBa17daa2AFf8e03908FE0dea24C232",
+      "contract": "src/SentinelRegistry.sol:SentinelRegistry",
+      "args": [
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
+      ]
+    },
+    {
+      "name": "pool",
+      "address": "0x87853d518172FD58C01476a9eC8425B54B009aaa",
+      "contract": "src/SentinelPool.sol:SentinelPool",
+      "args": [
+        "0x3e0075eFEb0a59faCAA4761332a4486984216Ca8",
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe",
+        8000
+      ]
+    },
+    {
+      "name": "policy",
+      "address": "0xA4C5144b9815aa1308dBb13fa86510Baf0e00c54",
+      "contract": "src/SentinelPolicy.sol:SentinelPolicy",
+      "args": [
+        "0x3e0075eFEb0a59faCAA4761332a4486984216Ca8",
+        "0xF85882800fBa17daa2AFf8e03908FE0dea24C232",
+        "0x87853d518172FD58C01476a9eC8425B54B009aaa",
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe",
+        0
+      ]
+    },
+    {
+      "name": "treasury",
+      "address": "0x37099DAEdf3d13e079B5bbD83cdF2DcF1dd70cf5",
+      "contract": "src/SentinelTreasury.sol:SentinelTreasury",
+      "args": [
+        "0xF85882800fBa17daa2AFf8e03908FE0dea24C232",
+        "0x87853d518172FD58C01476a9eC8425B54B009aaa",
+        "0xA4C5144b9815aa1308dBb13fa86510Baf0e00c54",
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
+      ]
+    },
+    {
+      "name": "oracle",
+      "address": "0xF308D880551D3F3526Cb0e6e1B36C828213aD1ab",
+      "contract": "src/SentinelOracle.sol:SentinelOracle",
+      "args": [
+        "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776",
+        "0xF85882800fBa17daa2AFf8e03908FE0dea24C232",
+        "0x37099DAEdf3d13e079B5bbD83cdF2DcF1dd70cf5",
+        "0xd915c7a3253bD31253eCdfC84A1e1b3f0FB5377f",
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
+      ]
+    }
+  ]
 }

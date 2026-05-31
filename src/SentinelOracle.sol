@@ -64,9 +64,16 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
     /// @notice topic0 for MockPriceOracle.PriceUpdated(address,uint256,uint64) — the detection event.
     bytes32 public constant PRICE_UPDATED_TOPIC = keccak256("PriceUpdated(address,uint256,uint64)");
 
-    /// @notice Default subcommittee size for a basic `createRequest` (CLAUDE.md §8). Finalization is
-    ///         by majority — 2 of 3 — so callback logic never hard-requires all three responses.
+    /// @notice Subcommittee size requested for every agent call. The Oracle requires UNANIMITY across
+    ///         this full committee (3/3) — the product's whole thesis ("three independent validators
+    ///         agreed"). Achieved by `createAdvancedRequest` with threshold == size + ConsensusType
+    ///         .Threshold; a basic `createRequest` only returns a partial committee on Somnia testnet
+    ///         (verified — see docs/spike-results.md), which is why we use the advanced form.
     uint256 public constant SUBCOMMITTEE_SIZE = 3;
+
+    /// @notice Timeout (seconds) handed to `createAdvancedRequest`. Must be > 0 (0 reverts on the
+    ///         platform); 300 verified to collect a full 3/3 committee on testnet.
+    uint256 public constant AGENT_TIMEOUT = 300;
 
     /// @notice Verified base-agent IDs (CLAUDE.md §8). Configurable via `setAgentIds` if the platform
     ///         re-registers an agent, but these are the spike-proven defaults.
@@ -127,11 +134,15 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
 
     // ─────────────────────────────── state machine ───────────────────────────────
 
-    /// @notice Which agent a given request belongs to.
+    /// @notice Which agent a given request belongs to. Two Investigate stages: Agent #2 reads the
+    ///         issuer homepage, then (if a distinct social/repo URL is registered) a second
+    ///         Parse-Website call reads that source before classification — a multi-source
+    ///         investigation (CLAUDE.md §4).
     enum Stage {
         None,
         Confirm,
         Investigate,
+        Investigate2,
         Classify
     }
 
@@ -155,7 +166,8 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
     /// @param stage           Stage currently/last in flight (used by `retry`).
     /// @param pendingRequestId The request this event is awaiting (stale-callback guard).
     /// @param cause           Consensus classification (set at finalize).
-    /// @param disclosure      Evidence text from Agent #2 (fed to the classifier).
+    /// @param disclosure      Primary evidence from Agent #2 over the issuer homepage.
+    /// @param disclosure2     Secondary evidence from the 2nd Parse-Website source (social/repo); "" if none.
     struct DepegEvent {
         address stable;
         uint256 detectedPrice;
@@ -167,6 +179,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         uint256 pendingRequestId;
         Classification.Cause cause;
         string disclosure;
+        string disclosure2;
     }
 
     /// @notice Routes a platform callback back to the originating event + stage.
@@ -486,6 +499,8 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
             _onConfirm(ctx.eventId, e, consensus);
         } else if (ctx.stage == Stage.Investigate) {
             _onInvestigate(ctx.eventId, e, consensus);
+        } else if (ctx.stage == Stage.Investigate2) {
+            _onInvestigate2(ctx.eventId, e, consensus);
         } else {
             _onClassify(ctx.eventId, e, consensus);
         }
@@ -516,12 +531,32 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         _dispatchInvestigate(eventId);
     }
 
-    /// @dev Agent #2 result is the issuer disclosure text; store it and dispatch the classifier.
+    /// @dev Agent #2 (homepage) result. Store it, then — if a distinct secondary source (social/repo)
+    ///      is registered — run a second Parse-Website over it before classifying; otherwise classify
+    ///      now. The event stays `Investigating` across both sub-steps.
     function _onInvestigate(uint256 eventId, DepegEvent storage e, bytes memory result) private {
         string memory disclosure = abi.decode(result, (string));
         e.disclosure = disclosure;
-        e.state = EventState.Classifying;
         emit InvestigationCompleted(eventId, disclosure);
+
+        SentinelRegistry.StableConfig memory cfg = registry.getConfig(e.stable);
+        string memory secondary = cfg.socialUrl;
+        bool hasSecond = bytes(secondary).length != 0
+            && keccak256(bytes(secondary)) != keccak256(bytes(cfg.homepageUrl));
+        if (hasSecond) {
+            _dispatchInvestigate2(eventId, secondary); // stays Investigating
+        } else {
+            e.state = EventState.Classifying;
+            _dispatchClassify(eventId);
+        }
+    }
+
+    /// @dev Agent #2 (secondary source) result. Store it and dispatch the classifier with both sources.
+    function _onInvestigate2(uint256 eventId, DepegEvent storage e, bytes memory result) private {
+        string memory disclosure2 = abi.decode(result, (string));
+        e.disclosure2 = disclosure2;
+        e.state = EventState.Classifying;
+        emit InvestigationCompleted(eventId, disclosure2);
         _dispatchClassify(eventId);
     }
 
@@ -561,9 +596,19 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         _dispatch(eventId, Stage.Investigate, parseWebsiteAgentId, investigateBudget, payload);
     }
 
+    /// @dev Second Parse-Website call over the secondary source (social/repo) URL.
+    function _dispatchInvestigate2(uint256 eventId, string memory url) private {
+        bytes memory payload = _buildInvestigatePayload(url);
+        _dispatch(eventId, Stage.Investigate2, parseWebsiteAgentId, investigateBudget, payload);
+    }
+
     function _dispatchClassify(uint256 eventId) private {
         DepegEvent storage e = _events[eventId];
-        string memory prompt = _buildClassifyPrompt(e.deviationBps, e.disclosure);
+        // Merge both investigation sources into the classifier evidence (2nd is optional).
+        string memory evidence = bytes(e.disclosure2).length != 0
+            ? string.concat(e.disclosure, " || Secondary source: ", e.disclosure2)
+            : e.disclosure;
+        string memory prompt = _buildClassifyPrompt(e.deviationBps, evidence);
         string[] memory allowed = Classification.allowedValues();
         bytes memory payload = abi.encodeWithSelector(
             ILlmInferenceAgent.inferString.selector, prompt, CLASSIFY_SYSTEM, false, allowed
@@ -619,18 +664,24 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         DepegEvent storage e = _events[eventId];
         e.stage = stage;
 
-        uint256 deposit = platform.getRequestDeposit() + (perAgentBudget * SUBCOMMITTEE_SIZE);
+        uint256 deposit = platform.getAdvancedRequestDeposit(SUBCOMMITTEE_SIZE) + (perAgentBudget * SUBCOMMITTEE_SIZE);
         if (address(this).balance < deposit) {
             _fail(eventId, e);
             emit StageUnfunded(eventId, stage, deposit, address(this).balance);
             return;
         }
 
-        try platform.createRequest{ value: deposit }(
-            agentId, address(this), IAgentCallback.handleResponse.selector, payload
-        ) returns (
-            uint256 requestId
-        ) {
+        // Advanced request: full subcommittee + threshold == size + Threshold consensus → require 3/3.
+        try platform.createAdvancedRequest{ value: deposit }(
+            agentId,
+            address(this),
+            IAgentCallback.handleResponse.selector,
+            payload,
+            SUBCOMMITTEE_SIZE,
+            SUBCOMMITTEE_SIZE,
+            IAgentPlatform.ConsensusType.Threshold,
+            AGENT_TIMEOUT
+        ) returns (uint256 requestId) {
             _contexts[requestId] =
                 AgentContext({ eventId: eventId, stage: stage, agentId: agentId, exists: true });
             e.pendingRequestId = requestId;
@@ -660,6 +711,9 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         } else if (e.stage == Stage.Investigate) {
             e.state = EventState.Investigating;
             _dispatchInvestigate(eventId);
+        } else if (e.stage == Stage.Investigate2) {
+            e.state = EventState.Investigating;
+            _dispatchInvestigate2(eventId, registry.getConfig(e.stable).socialUrl);
         } else if (e.stage == Stage.Classify) {
             e.state = EventState.Classifying;
             _dispatchClassify(eventId);
@@ -670,38 +724,30 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
 
     // ─────────────────────────────── consensus ───────────────────────────────
 
-    /// @dev The agreed value among the responses — but only if a STRICT MAJORITY of the subcommittee
-    ///      returned it. Returns empty (→ the caller parks the event as Failed) when no value clears
-    ///      `floor(SUBCOMMITTEE_SIZE/2) + 1` matching Success responses. This is the on-chain consensus
-    ///      gate: even if the platform's overall `status` is Success, we never advance on a plurality
-    ///      (e.g. three distinct answers, or a 1-1-1 split). A 2-of-3 majority is enough (CLAUDE.md §8);
-    ///      a 2-responder partial that agrees also clears it. O(n²) over ≤3 responses — trivially cheap.
+    /// @dev UNANIMITY gate (3/3): returns the agreed value only if the FULL subcommittee responded,
+    ///      every response is `Success`, and all results are byte-identical. Returns empty (→ the
+    ///      caller parks the event as `Failed`, retriable) on anything less — a missing validator, any
+    ///      non-Success, or any divergence. This is the on-chain enforcement of the product thesis:
+    ///      "three independent validators agreed, or no payout." The platform is also asked for
+    ///      Threshold consensus at size == threshold (see `_dispatch`), so this is defence-in-depth.
+    ///      O(n) over `SUBCOMMITTEE_SIZE` responses.
     function _consensusResult(IAgentPlatform.Response[] memory responses)
         private
         pure
         returns (bytes memory agreed)
     {
-        uint256 majority = (SUBCOMMITTEE_SIZE / 2) + 1; // 2 of 3
-        uint256 bestCount;
+        // Require the full committee. Fewer responses than the committee size is not unanimity.
+        if (responses.length < SUBCOMMITTEE_SIZE) return "";
+
+        bytes32 h = keccak256(responses[0].result);
+        uint256 successes;
         for (uint256 i; i < responses.length; ++i) {
-            if (responses[i].status != IAgentPlatform.ResponseStatus.Success) continue;
-            uint256 count;
-            bytes32 h = keccak256(responses[i].result);
-            for (uint256 j; j < responses.length; ++j) {
-                if (
-                    responses[j].status == IAgentPlatform.ResponseStatus.Success
-                        && keccak256(responses[j].result) == h
-                ) {
-                    ++count;
-                }
-            }
-            if (count > bestCount) {
-                bestCount = count;
-                agreed = responses[i].result;
-            }
+            if (responses[i].status != IAgentPlatform.ResponseStatus.Success) return "";
+            if (keccak256(responses[i].result) != h) return ""; // any divergence → no consensus
+            ++successes;
         }
-        // No strict majority agreed → not consensus.
-        if (bestCount < majority) return "";
+        if (successes < SUBCOMMITTEE_SIZE) return "";
+        return responses[0].result;
     }
 
     /// @dev Park an event in `Failed` and free the stable's live slot. Freeing the slot is essential:
@@ -813,7 +859,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
 
     /// @notice Native value forwarded for one request at a given per-validator budget.
     function requestValue(uint256 perAgentBudget) external view returns (uint256) {
-        return platform.getRequestDeposit() + (perAgentBudget * SUBCOMMITTEE_SIZE);
+        return platform.getAdvancedRequestDeposit(SUBCOMMITTEE_SIZE) + (perAgentBudget * SUBCOMMITTEE_SIZE);
     }
 
     /// @notice Accept native funding (operator top-ups) and the platform's deposit rebate.

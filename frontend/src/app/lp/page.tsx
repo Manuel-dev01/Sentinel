@@ -8,9 +8,9 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { CONTRACTS, INSURED } from "@/lib/contracts";
+import type { Abi } from "viem";
+import { CONTRACTS, STABLES } from "@/lib/contracts";
 import { fmtWad, fmtCompact } from "@/lib/format";
-import { CrossChainFund } from "@/components/CrossChainFund";
 
 export default function LiquidityPage() {
   const { address, isConnected } = useAccount();
@@ -25,9 +25,20 @@ export default function LiquidityPage() {
       { ...CONTRACTS.pool, functionName: "utilizationCapBps" },
       { ...CONTRACTS.pool, functionName: "totalShares" },
       { ...CONTRACTS.pool, functionName: "convertToAssets", args: [parseEther("1")] },
-      { ...CONTRACTS.oracle, functionName: "liveEventOf", args: [INSURED] },
-      { ...CONTRACTS.registry, functionName: "getConfig", args: [INSURED] },
+      { ...CONTRACTS.registry, functionName: "getConfig", args: [STABLES[0].address] },
     ],
+    query: { refetchInterval: 5000 },
+  });
+
+  // The pool is shared across all insured stables, so a live event on ANY stable locks withdrawals.
+  // Dynamic per-stable array uses a loosely-typed abi (wagmi can't infer a spread tuple).
+  const { data: liveEvents } = useReadContracts({
+    contracts: STABLES.map((s) => ({
+      address: CONTRACTS.oracle.address,
+      abi: CONTRACTS.oracle.abi as Abi,
+      functionName: "liveEventOf",
+      args: [s.address],
+    })),
     query: { refetchInterval: 5000 },
   });
 
@@ -46,8 +57,10 @@ export default function LiquidityPage() {
   const capBps = (g?.[3]?.result as number) ?? 0;
   const totalShares = (g?.[4]?.result as bigint) ?? 0n;
   const navPerShare = (g?.[5]?.result as bigint) ?? parseEther("1");
-  const liveEventId = (g?.[6]?.result as bigint) ?? 0n;
-  const cfg = g?.[7]?.result as { annualRateBps: number } | undefined;
+  const cfg = g?.[6]?.result as { annualRateBps: number } | undefined;
+  // The pool locks if any stable has a live (non-terminal) event.
+  const liveEventId =
+    (liveEvents ?? []).map((r) => (r?.result as bigint) ?? 0n).find((id) => id !== 0n) ?? 0n;
 
   // Estimated LP yield: annual premium income from active coverage ÷ pool capital.
   // premium/yr ≈ outstandingLiability × annualRateBps; APY ≈ that / totalAssets (WADs cancel → bps).
@@ -198,8 +211,6 @@ export default function LiquidityPage() {
           )}
         </div>
       </section>
-
-      <CrossChainFund blurb="Top up LP capital from any chain." />
     </div>
   );
 }

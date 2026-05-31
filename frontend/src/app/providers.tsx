@@ -6,6 +6,7 @@ import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { useState, type ReactNode } from "react";
 import { wagmiConfig } from "@/lib/wagmi";
+import { StableProvider } from "@/lib/stables";
 
 // Modal theme tuned to the Editorial Technical brand: ultraviolet accent, square-ish, system stack.
 const sentinelTheme = lightTheme({
@@ -22,7 +23,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={sentinelTheme} modalSize="compact">
-          {children}
+          <StableProvider>{children}</StableProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

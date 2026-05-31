@@ -55,8 +55,10 @@ contract SentinelOracleTest is Test {
         );
 
         vm.startPrank(operator);
+        // socialUrl empty → single-source investigate for the default stable (most tests). The
+        // two-source path is covered by test_two_source_investigate with a dedicated stable.
         registry.registerStable(
-            stable, WAD, THRESHOLD_BPS, MIN_DURATION, 50, tiers, "https://issuer.example", "s", "r"
+            stable, WAD, THRESHOLD_BPS, MIN_DURATION, 50, tiers, "https://issuer.example", "", "r"
         );
         pool.grantRole(pool.POLICY_ROLE(), address(policy));
         pool.grantRole(pool.TREASURY_ROLE(), address(treasury));
@@ -214,19 +216,21 @@ contract SentinelOracleTest is Test {
         assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Failed));
     }
 
-    function test_majority_2of3_reaches_consensus() public {
+    /// @notice Under 3/3 unanimity, a 2-of-3 majority (one dissenter) is NOT consensus → Failed.
+    function test_majority_2of3_fails_under_unanimity() public {
         _emit(stable, 0.98e18);
         uint256 eventId = oracle.nextEventId() - 1;
-        // Two agree on 0.94, one dissents -- majority value wins.
+        // Two agree on 0.94, one dissents → not unanimous → no payout path.
         platform.deliverMajority(1, abi.encode(uint256(0.94e18)), abi.encode(uint256(1e18)));
-        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Investigating));
+        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Failed));
     }
 
-    function test_partial_2_responders_is_enough() public {
+    /// @notice Under 3/3 unanimity, only 2 of 3 validators responding is NOT enough → Failed.
+    function test_partial_2_responders_fails_under_unanimity() public {
         _emit(stable, 0.98e18);
         uint256 eventId = oracle.nextEventId() - 1;
         platform.deliverPartial(1, abi.encode(uint256(0.94e18)));
-        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Investigating));
+        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Failed));
     }
 
     // ─────────────────────────────── agent payload signatures ───────────────────────────────
@@ -298,6 +302,48 @@ contract SentinelOracleTest is Test {
         assertEq(rs.length, 3, "failed-stage votes are still persisted for the audit trail");
         assertEq(uint8(rs[0].status), uint8(IAgentPlatform.ResponseStatus.Failed));
         assertEq(uint8(rs[0].stage), uint8(SentinelOracle.Stage.Confirm));
+    }
+
+    // ─────────────────────── multi-source investigation (2nd agent target) ───────────────────────
+
+    /// @notice With a distinct secondary source (`socialUrl`), the Oracle runs TWO Parse-Website calls
+    ///         (Investigate → Investigate2) and merges both disclosures before classifying.
+    function test_two_source_investigate() public {
+        address two = makeAddr("TWOx");
+        vm.startPrank(operator);
+        registry.registerStable(
+            two, WAD, THRESHOLD_BPS, MIN_DURATION, 50, tiers, "https://home.example", "https://social.example", "r"
+        );
+        oracle.setConfirmFeed(two, "https://basket.example/price", "price", 18);
+        vm.stopPrank();
+
+        _emit(two, 0.98e18); // confirm = req 1
+        uint256 eventId = oracle.nextEventId() - 1;
+
+        platform.deliverUnanimous(1, abi.encode(uint256(0.94e18))); // → investigate (req 2)
+        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Investigating));
+
+        platform.deliverUnanimous(2, abi.encode("Homepage: exploit confirmed.")); // → investigate2 (req 3)
+        SentinelOracle.DepegEvent memory e = oracle.getEvent(eventId);
+        assertEq(uint8(e.state), uint8(SentinelOracle.EventState.Investigating), "stays investigating for 2nd source");
+        assertEq(e.disclosure, "Homepage: exploit confirmed.");
+
+        platform.deliverUnanimous(3, abi.encode("Social: team confirms reentrancy drain.")); // → classify (req 4)
+        e = oracle.getEvent(eventId);
+        assertEq(uint8(e.state), uint8(SentinelOracle.EventState.Classifying));
+        assertEq(e.disclosure2, "Social: team confirms reentrancy drain.");
+
+        platform.deliverUnanimous(4, abi.encode("SMART_CONTRACT_EXPLOIT")); // → classified
+        e = oracle.getEvent(eventId);
+        assertEq(uint8(e.state), uint8(SentinelOracle.EventState.Classified));
+        assertEq(uint8(e.cause), uint8(Classification.Cause.SMART_CONTRACT_EXPLOIT));
+
+        // 4 requests (confirm + 2 investigates + classify) × 3 validators = 12 receipts.
+        SentinelOracle.Receipt[] memory rs = oracle.getReceipts(eventId);
+        assertEq(rs.length, 12, "both investigate stages recorded");
+        assertEq(uint8(rs[3].stage), uint8(SentinelOracle.Stage.Investigate));
+        assertEq(uint8(rs[6].stage), uint8(SentinelOracle.Stage.Investigate2));
+        assertEq(uint8(rs[9].stage), uint8(SentinelOracle.Stage.Classify));
     }
 
     // ──────────────────────── callback access control & robustness ────────────────────────

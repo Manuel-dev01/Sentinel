@@ -125,17 +125,21 @@ Consensus-validated AI classification + keeperless on-chain detection are the tw
 
 ## Deployed addresses (Somnia testnet)
 
-> Deployed and verified end-to-end on 2026-05-31 (chain id 50312). The full detect → confirm → investigate → classify → payout flow ran autonomously in **~26 s** on this deployment (`SMART_CONTRACT_EXPLOIT`, 100% immediate payout). Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by the `/audit` screen — no off-chain indexer.
+> Redeployed and **source-verified** on Shannon Explorer 2026-05-31 (chain id 50312). This deployment runs **3-of-3 validator unanimity** (`createAdvancedRequest`, `ConsensusType.Threshold`) and a **sequential two-source investigation** (issuer disclosure + status feed). Two stablecoins (USDC + USDT) are independently insurable. Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by the `/audit` screen — no off-chain indexer.
+>
+> All contracts below carry the green “Verified” tab on the explorer. Re-verify any deploy with `pnpm verify:testnet` (forge → Blockscout). Note: Shannon Explorer’s indexer flags a freshly-deployed address as a contract a few minutes after deploy; verification (and the Code/Read/Write tabs) only become available once it does.
 
 | Contract | Address |
 |---|---|
-| SentinelRegistry | [`0xBb4a01D4903bDD23E5e164E38eF988734667fdA8`](https://shannon-explorer.somnia.network/address/0xBb4a01D4903bDD23E5e164E38eF988734667fdA8) |
-| SentinelPool | [`0x1dB5c35a327338DD6d225617Dc5415d33c4002Fc`](https://shannon-explorer.somnia.network/address/0x1dB5c35a327338DD6d225617Dc5415d33c4002Fc) |
-| SentinelPolicy | [`0x4966DDf7f8b74Ec07Dce1d148fe9B06702624F7E`](https://shannon-explorer.somnia.network/address/0x4966DDf7f8b74Ec07Dce1d148fe9B06702624F7E) |
-| SentinelTreasury | [`0x7a2259D0eAe3BF277b673dd08972762fD944e275`](https://shannon-explorer.somnia.network/address/0x7a2259D0eAe3BF277b673dd08972762fD944e275) |
-| SentinelOracle | [`0xd6Cfd84691DeE2C80B47c00c348cBa22636160cF`](https://shannon-explorer.somnia.network/address/0xd6Cfd84691DeE2C80B47c00c348cBa22636160cF) |
+| SentinelRegistry | [`0xF85882800fBa17daa2AFf8e03908FE0dea24C232`](https://shannon-explorer.somnia.network/address/0xF85882800fBa17daa2AFf8e03908FE0dea24C232) |
+| SentinelPool | [`0x87853d518172FD58C01476a9eC8425B54B009aaa`](https://shannon-explorer.somnia.network/address/0x87853d518172FD58C01476a9eC8425B54B009aaa) |
+| SentinelPolicy | [`0xA4C5144b9815aa1308dBb13fa86510Baf0e00c54`](https://shannon-explorer.somnia.network/address/0xA4C5144b9815aa1308dBb13fa86510Baf0e00c54) |
+| SentinelTreasury | [`0x37099DAEdf3d13e079B5bbD83cdF2DcF1dd70cf5`](https://shannon-explorer.somnia.network/address/0x37099DAEdf3d13e079B5bbD83cdF2DcF1dd70cf5) |
+| SentinelOracle | [`0xF308D880551D3F3526Cb0e6e1B36C828213aD1ab`](https://shannon-explorer.somnia.network/address/0xF308D880551D3F3526Cb0e6e1B36C828213aD1ab) |
 
-Demo scaffolding (operator-controlled, for reproducing the trigger): CAPITAL/sUSD [`0xBf51Db11…5D1e`](https://shannon-explorer.somnia.network/address/0xBf51Db11C17B3288c3b347EcC13aa20605245D1e) · INSURED/USDC [`0x71918476…A88a`](https://shannon-explorer.somnia.network/address/0x71918476F55ebD185DC3E8ea8514c7F2C514A88a) · MockPriceOracle [`0x7e09120C…A593`](https://shannon-explorer.somnia.network/address/0x7e09120C5A06B2aC87CB324F864f11b520d3A593) · Reactivity subscription `3535096`.
+Insured stables: **USDC** [`0xF09b39b6…238F`](https://shannon-explorer.somnia.network/address/0xF09b39b62548879C314fA52fb1B7BF943d27238F) (policy #1) · **USDT** [`0x004D79a2…2f87`](https://shannon-explorer.somnia.network/address/0x004D79a2d6e86C0A8A5ec5b101Eb48595B602f87) (policy #2).
+
+Demo scaffolding (operator-controlled, for reproducing the trigger): CAPITAL/sUSD [`0x3e0075eF…16Ca8`](https://shannon-explorer.somnia.network/address/0x3e0075eFEb0a59faCAA4761332a4486984216Ca8) · MockPriceOracle [`0xd915c7a3…377f`](https://shannon-explorer.somnia.network/address/0xd915c7a3253bD31253eCdfC84A1e1b3f0FB5377f) · Reactivity subscription `3647477`.
 
 ## Demo
 

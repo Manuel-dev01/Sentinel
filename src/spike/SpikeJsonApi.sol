@@ -78,6 +78,36 @@ contract SpikeJsonApi is IAgentCallback {
         emit Dispatched(requestId, url, payload);
     }
 
+    /// @notice Like `fire`, but via `createAdvancedRequest` with an explicit subcommittee size +
+    ///         threshold + Threshold consensus. Used by the 3/3-consensus gating spike to measure how
+    ///         many validators Somnia testnet actually returns when we request a full committee.
+    function fireAdvanced(
+        string calldata url,
+        string calldata selector,
+        uint256 subcommitteeSize,
+        uint256 threshold,
+        uint256 timeout
+    ) external payable onlyOwner returns (uint256 requestId) {
+        if (msg.value == 0) revert InsufficientValue();
+
+        bytes memory payload = abi.encodeWithSelector(IJsonApiAgent.fetchString.selector, url, selector);
+
+        requestId = platform.createAdvancedRequest{ value: msg.value }(
+            JSON_API_AGENT_ID,
+            address(this),
+            this.handleResponse.selector,
+            payload,
+            subcommitteeSize,
+            threshold,
+            IAgentPlatform.ConsensusType.Threshold,
+            timeout
+        );
+
+        lastRequestId = requestId;
+        lastUrl = url;
+        emit Dispatched(requestId, url, payload);
+    }
+
     /// @inheritdoc IAgentCallback
     function handleResponse(
         uint256 requestId,

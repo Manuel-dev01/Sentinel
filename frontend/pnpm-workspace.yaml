@@ -1,5 +1,6 @@
 allowBuilds:
   bufferutil: false
+  keccak: false
   sharp: true
   unrs-resolver: true
   utf-8-validate: false

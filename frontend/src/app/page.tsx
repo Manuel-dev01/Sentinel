@@ -9,25 +9,28 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { CONTRACTS, INSURED, EVENT_STATE } from "@/lib/contracts";
+import { CONTRACTS, EVENT_STATE } from "@/lib/contracts";
+import { useStable, StableSelector } from "@/lib/stables";
 import { fmtPrice, fmtCompact, fmtBpsPct, deviationBps } from "@/lib/format";
 
 const REFRESH = 4000;
 
 export default function Dashboard() {
   const { isConnected } = useAccount();
+  const { selected } = useStable();
+  const insured = selected.address;
 
   // Batched live reads — refetched every few seconds for a "monitor" feel.
   const { data, refetch } = useReadContracts({
     contracts: [
-      { ...CONTRACTS.priceOracle, functionName: "priceOf", args: [INSURED] },
-      { ...CONTRACTS.registry, functionName: "getConfig", args: [INSURED] },
+      { ...CONTRACTS.priceOracle, functionName: "priceOf", args: [insured] },
+      { ...CONTRACTS.registry, functionName: "getConfig", args: [insured] },
       { ...CONTRACTS.pool, functionName: "totalAssets" },
       { ...CONTRACTS.pool, functionName: "availableCapital" },
       { ...CONTRACTS.pool, functionName: "outstandingLiability" },
       { ...CONTRACTS.pool, functionName: "utilizationCapBps" },
       { ...CONTRACTS.policy, functionName: "nextTokenId" },
-      { ...CONTRACTS.oracle, functionName: "liveEventOf", args: [INSURED] },
+      { ...CONTRACTS.oracle, functionName: "liveEventOf", args: [insured] },
       { ...CONTRACTS.oracle, functionName: "nextEventId" },
     ],
     query: { refetchInterval: REFRESH },
@@ -81,7 +84,7 @@ export default function Dashboard() {
       {
         ...CONTRACTS.priceOracle,
         functionName: "setPrice",
-        args: [INSURED, parseEther(human)],
+        args: [insured, parseEther(human)],
       },
       { onSettled: () => setTimeout(() => refetch(), 1500) },
     );
@@ -106,16 +109,19 @@ export default function Dashboard() {
         </div>
         <div className="right">
           <p className="sec-lead">
-            One insured stablecoin, watched on-chain. Trip the peg and the reactive engine investigates
+            Insured stablecoins, watched on-chain. Trip the peg and the reactive engine investigates
             and pays — no keeper, no committee.
           </p>
+          <div style={{ marginTop: 16 }}>
+            <StableSelector />
+          </div>
         </div>
       </div>
 
       {/* ── Live monitor (dark panel) ── */}
       <section className="dark" style={{ position: "relative" }}>
         <div className="pm-bar">
-          <span className="live">USDx · INSURED POSITION</span>
+          <span className="live">{selected.symbol} · INSURED POSITION</span>
           <span>±{fmtBpsPct(threshold)} TOLERANCE</span>
         </div>
 
@@ -214,7 +220,7 @@ export default function Dashboard() {
 
       {/* ── Footnote ── */}
       <div className="section-pad rule" style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--ink-3)", letterSpacing: "0.04em" }}>
-        Insured: {INSURED} · Detection: Somnia Reactivity → SentinelOracle._onEvent · Liability{" "}
+        Insured: {selected.symbol} {insured} · Detection: Somnia Reactivity → SentinelOracle._onEvent · Liability{" "}
         {fmtCompact(liability)} sUSD outstanding.
       </div>
     </div>
@@ -231,7 +237,10 @@ function PipelineStepper({ state, stage }: { state: number; stage?: number }) {
   const active = state >= 1 && state <= 4 ? state : state === 4 ? 4 : -1;
   const dismissed = state === 5;
   const failed = state === 6;
-  const failedAt = failed ? (stage ?? 1) : -1; // Stage enum: 1 Confirm,2 Investigate,3 Classify
+  // Map Stage enum (1 Confirm, 2 Investigate, 3 Investigate2, 4 Classify) → step index
+  // (0 Detect, 1 Confirm, 2 Investigate, 3 Classify, 4 Settled). Both investigate sub-stages map to step 2.
+  const STAGE_TO_STEP: Record<number, number> = { 1: 1, 2: 2, 3: 2, 4: 3 };
+  const failedAt = failed ? (STAGE_TO_STEP[stage ?? 1] ?? 1) : -1;
 
   return (
     <div style={{ display: "flex", alignItems: "stretch", gap: 0, flexWrap: "wrap" }}>

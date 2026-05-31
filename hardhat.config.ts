@@ -45,6 +45,36 @@ const config: HardhatUserConfig = {
       accounts,
     },
   },
+  // Source verification on Shannon Explorer (Blockscout). Blockscout ignores the API key but
+  // hardhat-verify requires a non-empty string. `npx hardhat verify --network somniaTestnet <addr> <args>`
+  // (or `pnpm verify:testnet`, which reads constructor args from the deployment artifact).
+  etherscan: {
+    apiKey: {
+      somniaTestnet: "blockscout",
+      somniaMainnet: "blockscout",
+    },
+    customChains: [
+      {
+        network: "somniaTestnet",
+        chainId: 50312,
+        urls: {
+          apiURL: "https://shannon-explorer.somnia.network/api",
+          browserURL: "https://shannon-explorer.somnia.network",
+        },
+      },
+      {
+        network: "somniaMainnet",
+        chainId: 5031,
+        urls: {
+          apiURL: "https://explorer.somnia.network/api",
+          browserURL: "https://explorer.somnia.network",
+        },
+      },
+    ],
+  },
+  sourcify: {
+    enabled: false,
+  },
 };
 
 export default config;

@@ -20,8 +20,16 @@
  *
  * Requires in .env: DEPLOYER_PRIVATE_KEY, AGENT_PLATFORM_ADDRESS, MOCK_ISSUER_URL.
  * Optional: ISSUER_PAGE_URL (Parse Website target; defaults to MOCK_ISSUER_URL),
+ *           ISSUER_SOCIAL_URL (2nd Parse Website target; defaults to ISSUER_PAGE_URL with
+ *             /issuer/incident -> /issuer/social),
  *           ORACLE_FUNDING_STT (default 34), POOL_SEED (default 1_000_000),
  *           POLICY_NOTIONAL (default 100_000), POLICY_TERM_DAYS (default 365).
+ *
+ * Deploys TWO insured stables (USDC + USDT) so the frontend stable-selector + multi-stable
+ * coverage are demoable; each is registered with the same risk params but distinct issuer
+ * sources (homepage = /issuer/incident, social = /issuer/social) so the Oracle's sequential
+ * two-source investigation has a distinct HTML target per source. `contracts.insured` /
+ * `demoTokenId` keep pointing at the PRIMARY stable (USDC) so simulate-depeg.ts is unchanged.
  */
 
 import { ethers, network } from "hardhat";
@@ -33,18 +41,37 @@ dotenv.config();
 
 const PLATFORM_FALLBACK_TESTNET = "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776";
 
-// Demo risk params for the insured stable.
+// Demo risk params shared by the insured stables.
 const PEG_TARGET = ethers.parseEther("1"); // $1.00 in WAD
 const DEPEG_THRESHOLD_BPS = 50; // 0.5% arms detection
 const MIN_DURATION_SECONDS = 0; // demo: first breach triggers immediately
-const ANNUAL_RATE_BPS = 50; // 0.50%/yr premium
 const TIERS = { noPayoutBps: 200, partialBps: 500, highBps: 1000 }; // 2% / 5% / 10%
 const POLICY_MIN_AGE = 0; // demo: policy eligible immediately (prod would be > 0)
 const UTILIZATION_CAP_BPS = 8_000; // 80%
 
+// The insured stables to deploy + register. The first is PRIMARY (simulate-depeg targets it).
+const STABLES: { name: string; symbol: string; annualRateBps: number }[] = [
+  { name: "USD Coin", symbol: "USDC", annualRateBps: 50 }, // 0.50%/yr
+  { name: "Tether USD", symbol: "USDT", annualRateBps: 65 }, // 0.65%/yr — priced slightly riskier
+];
+
 // Confirm feed: read the integer WAD price string with decimals=0 (no decimal-point parsing).
 const CONFIRM_SELECTOR = "price_wad";
 const CONFIRM_DECIMALS = 0;
+
+/** Derive the social-feed issuer URL from the incident URL if not explicitly set. */
+function deriveSocialUrl(pageUrl: string): string {
+  const explicit = process.env.ISSUER_SOCIAL_URL?.trim();
+  if (explicit) return explicit;
+  if (pageUrl.includes("/issuer/incident")) return pageUrl.replace("/issuer/incident", "/issuer/social");
+  // Fallback: append /issuer/social to the origin.
+  try {
+    const u = new URL(pageUrl);
+    return `${u.origin}/issuer/social`;
+  } catch {
+    return pageUrl;
+  }
+}
 
 function ensureEnv(name: string): string {
   const v = process.env[name];
@@ -71,7 +98,8 @@ async function main() {
 
   const platformAddr = process.env.AGENT_PLATFORM_ADDRESS?.trim() || PLATFORM_FALLBACK_TESTNET;
   const issuerJsonUrl = ensureEnv("MOCK_ISSUER_URL"); // basket JSON (confirm stage)
-  const issuerPageUrl = process.env.ISSUER_PAGE_URL?.trim() || issuerJsonUrl; // Parse Website target
+  const issuerPageUrl = process.env.ISSUER_PAGE_URL?.trim() || issuerJsonUrl; // Parse Website target #1 (homepage)
+  const issuerSocialUrl = deriveSocialUrl(issuerPageUrl); // Parse Website target #2 (social feed)
   const oracleFunding = ethers.parseEther(process.env.ORACLE_FUNDING_STT?.trim() || "34");
   const poolSeed = ethers.parseEther(process.env.POOL_SEED?.trim() || "1000000");
   const policyNotional = ethers.parseEther(process.env.POLICY_NOTIONAL?.trim() || "100000");
@@ -84,7 +112,8 @@ async function main() {
   console.log(`Start balance:  ${ethers.formatEther(startBalance)} STT`);
   console.log(`Agent platform: ${platformAddr}`);
   console.log(`Basket JSON:    ${issuerJsonUrl}`);
-  console.log(`Issuer page:    ${issuerPageUrl}\n`);
+  console.log(`Issuer page:    ${issuerPageUrl}`);
+  console.log(`Issuer social:  ${issuerSocialUrl}\n`);
 
   if (startBalance < oracleFunding + ethers.parseEther("3")) {
     throw new Error(
@@ -93,28 +122,41 @@ async function main() {
     );
   }
 
-  // ───────────────────────── 1–2. tokens ─────────────────────────
+  // verification targets accumulated as we deploy (address + FQN + constructor args).
+  const verifyTargets: { name: string; address: string; contract: string; args: unknown[] }[] = [];
+
+  // ───────────────────────── 1. capital token ─────────────────────────
   console.log("─── Tokens ───────────────────────────────────────────────────");
   const MockStable = await ethers.getContractFactory("MockStable");
+  const STABLE_FQN = "src/mocks/MockStable.sol:MockStable";
   const capital = await MockStable.deploy("Sentinel USD", "sUSD", 18);
   await capital.waitForDeployment();
   const capitalAddr = await capital.getAddress();
   console.log(`CAPITAL (sUSD):    ${capitalAddr}`);
+  verifyTargets.push({ name: "capital", address: capitalAddr, contract: STABLE_FQN, args: ["Sentinel USD", "sUSD", 18] });
 
-  const insured = await MockStable.deploy("USD Coin", "USDC", 18);
-  await insured.waitForDeployment();
-  const insuredAddr = await insured.getAddress();
-  console.log(`INSURED (USDC):    ${insuredAddr}`);
-
-  // ───────────────────────── 3. price oracle ─────────────────────────
+  // ───────────────────────── 2. insured stables (USDC + USDT) ─────────────────────────
   const MockPriceOracle = await ethers.getContractFactory("MockPriceOracle");
   const priceOracle = await MockPriceOracle.deploy(signer.address);
   await priceOracle.waitForDeployment();
   const priceOracleAddr = await priceOracle.getAddress();
   console.log(`MockPriceOracle:   ${priceOracleAddr}`);
-  // Seed the insured at peg so the dashboard shows a healthy peg before the demo.
-  await (await priceOracle.setPrice(insuredAddr, PEG_TARGET)).wait();
-  console.log(`  · seeded USDC @ $1.0000\n`);
+  verifyTargets.push({ name: "priceOracle", address: priceOracleAddr, contract: "src/mocks/MockPriceOracle.sol:MockPriceOracle", args: [signer.address] });
+
+  const stables: { name: string; symbol: string; address: string; annualRateBps: number }[] = [];
+  for (const s of STABLES) {
+    const tok = await MockStable.deploy(s.name, s.symbol, 18);
+    await tok.waitForDeployment();
+    const addr = await tok.getAddress();
+    stables.push({ name: s.name, symbol: s.symbol, address: addr, annualRateBps: s.annualRateBps });
+    verifyTargets.push({ name: `insured:${s.symbol}`, address: addr, contract: STABLE_FQN, args: [s.name, s.symbol, 18] });
+    // Seed at peg so the dashboard shows a healthy peg before the demo.
+    await (await priceOracle.setPrice(addr, PEG_TARGET)).wait();
+    console.log(`INSURED (${s.symbol}):${" ".repeat(Math.max(1, 5 - s.symbol.length))}${addr}  · seeded @ $1.0000`);
+  }
+  // PRIMARY stable = first registered (simulate-depeg + single-event demo target).
+  const insuredAddr = stables[0].address;
+  console.log("");
 
   // ───────────────────────── 4–8. core contracts ─────────────────────────
   console.log("─── Core contracts ───────────────────────────────────────────");
@@ -123,30 +165,35 @@ async function main() {
   await registry.waitForDeployment();
   const registryAddr = await registry.getAddress();
   console.log(`SentinelRegistry:  ${registryAddr}`);
+  verifyTargets.push({ name: "registry", address: registryAddr, contract: "src/SentinelRegistry.sol:SentinelRegistry", args: [signer.address] });
 
   const SentinelPool = await ethers.getContractFactory("SentinelPool");
   const pool = await SentinelPool.deploy(capitalAddr, signer.address, UTILIZATION_CAP_BPS);
   await pool.waitForDeployment();
   const poolAddr = await pool.getAddress();
   console.log(`SentinelPool:      ${poolAddr}`);
+  verifyTargets.push({ name: "pool", address: poolAddr, contract: "src/SentinelPool.sol:SentinelPool", args: [capitalAddr, signer.address, UTILIZATION_CAP_BPS] });
 
   const SentinelPolicy = await ethers.getContractFactory("SentinelPolicy");
   const policy = await SentinelPolicy.deploy(capitalAddr, registryAddr, poolAddr, signer.address, POLICY_MIN_AGE);
   await policy.waitForDeployment();
   const policyAddr = await policy.getAddress();
   console.log(`SentinelPolicy:    ${policyAddr}`);
+  verifyTargets.push({ name: "policy", address: policyAddr, contract: "src/SentinelPolicy.sol:SentinelPolicy", args: [capitalAddr, registryAddr, poolAddr, signer.address, POLICY_MIN_AGE] });
 
   const SentinelTreasury = await ethers.getContractFactory("SentinelTreasury");
   const treasury = await SentinelTreasury.deploy(registryAddr, poolAddr, policyAddr, signer.address);
   await treasury.waitForDeployment();
   const treasuryAddr = await treasury.getAddress();
   console.log(`SentinelTreasury:  ${treasuryAddr}`);
+  verifyTargets.push({ name: "treasury", address: treasuryAddr, contract: "src/SentinelTreasury.sol:SentinelTreasury", args: [registryAddr, poolAddr, policyAddr, signer.address] });
 
   const SentinelOracle = await ethers.getContractFactory("SentinelOracle");
   const oracle = await SentinelOracle.deploy(platformAddr, registryAddr, treasuryAddr, priceOracleAddr, signer.address);
   await oracle.waitForDeployment();
   const oracleAddr = await oracle.getAddress();
   console.log(`SentinelOracle:    ${oracleAddr}`);
+  verifyTargets.push({ name: "oracle", address: oracleAddr, contract: "src/SentinelOracle.sol:SentinelOracle", args: [platformAddr, registryAddr, treasuryAddr, priceOracleAddr, signer.address] });
   console.log(`Explorer:          ${explorerAddr(oracleAddr)}\n`);
 
   // ───────────────────────── wire roles ─────────────────────────
@@ -160,24 +207,27 @@ async function main() {
   console.log(`  · policy.CLAIM_MANAGER -> SentinelTreasury`);
   console.log(`  · treasury.ORACLE_ROLE -> SentinelOracle\n`);
 
-  // ───────────────────────── register stable + confirm feed ─────────────────────────
-  console.log("─── Register insured stable ──────────────────────────────────");
-  await (
-    await registry.registerStable(
-      insuredAddr,
-      PEG_TARGET,
-      DEPEG_THRESHOLD_BPS,
-      MIN_DURATION_SECONDS,
-      ANNUAL_RATE_BPS,
-      TIERS,
-      issuerPageUrl, // homepageUrl — the Parse Website target
-      issuerPageUrl, // socialUrl (unused in demo)
-      issuerPageUrl, // repoUrl (unused in demo)
-    )
-  ).wait();
-  console.log(`  · registered USDC (threshold ${DEPEG_THRESHOLD_BPS}bps, rate ${ANNUAL_RATE_BPS}bps)`);
-  await (await oracle.setConfirmFeed(insuredAddr, issuerJsonUrl, CONFIRM_SELECTOR, CONFIRM_DECIMALS)).wait();
-  console.log(`  · confirm feed: ${issuerJsonUrl} [${CONFIRM_SELECTOR}, decimals=${CONFIRM_DECIMALS}]\n`);
+  // ───────────────────────── register stables + confirm feeds ─────────────────────────
+  console.log("─── Register insured stables ─────────────────────────────────");
+  for (const s of stables) {
+    await (
+      await registry.registerStable(
+        s.address,
+        PEG_TARGET,
+        DEPEG_THRESHOLD_BPS,
+        MIN_DURATION_SECONDS,
+        s.annualRateBps,
+        TIERS,
+        issuerPageUrl, // homepageUrl — Parse Website source #1 (formal disclosure)
+        issuerSocialUrl, // socialUrl — Parse Website source #2 (status feed); distinct HTML page
+        issuerSocialUrl, // repoUrl (unused in demo)
+      )
+    ).wait();
+    console.log(`  · registered ${s.symbol} (threshold ${DEPEG_THRESHOLD_BPS}bps, rate ${s.annualRateBps}bps)`);
+    await (await oracle.setConfirmFeed(s.address, issuerJsonUrl, CONFIRM_SELECTOR, CONFIRM_DECIMALS)).wait();
+    console.log(`    confirm feed: ${issuerJsonUrl} [${CONFIRM_SELECTOR}, decimals=${CONFIRM_DECIMALS}]`);
+  }
+  console.log(`  · investigate sources: homepage=${issuerPageUrl}  social=${issuerSocialUrl}\n`);
 
   // ───────────────────────── fund + arm the Oracle ─────────────────────────
   console.log("─── Fund + arm Oracle ────────────────────────────────────────");
@@ -196,16 +246,24 @@ async function main() {
   await (await pool.deposit(poolSeed, signer.address)).wait();
   console.log(`  · deposited ${ethers.formatEther(poolSeed)} sUSD as LP capital\n`);
 
-  // ───────────────────────── buy a demo policy ─────────────────────────
-  console.log("─── Buy demo policy ──────────────────────────────────────────");
-  const premium: bigint = await policy.quote(insuredAddr, policyNotional, policyTerm);
-  // Mint premium + a buffer to the operator (who is also the demo policyholder).
-  await (await capital.mint(signer.address, premium)).wait();
+  // ───────────────────────── buy a demo policy per stable ─────────────────────────
+  console.log("─── Buy demo policies ────────────────────────────────────────");
   await (await capital.approve(policyAddr, ethers.MaxUint256)).wait();
-  const buyTx = await policy.buy(insuredAddr, policyNotional, policyTerm);
-  await buyTx.wait();
-  const tokenId: bigint = (await policy.nextTokenId()) - 1n;
-  console.log(`  · bought policy #${tokenId.toString()}: notional ${ethers.formatEther(policyNotional)} USDC, premium ${ethers.formatEther(premium)} sUSD, term ${policyTerm / 86_400n}d\n`);
+  const demoTokens: Record<string, string> = {};
+  let primaryTokenId = 0n;
+  for (const s of stables) {
+    const premium: bigint = await policy.quote(s.address, policyNotional, policyTerm);
+    // Mint premium + a buffer to the operator (who is also the demo policyholder).
+    await (await capital.mint(signer.address, premium)).wait();
+    const buyTx = await policy.buy(s.address, policyNotional, policyTerm);
+    await buyTx.wait();
+    const id: bigint = (await policy.nextTokenId()) - 1n;
+    demoTokens[s.symbol] = id.toString();
+    if (s.address === insuredAddr) primaryTokenId = id;
+    console.log(`  · ${s.symbol} policy #${id.toString()}: notional ${ethers.formatEther(policyNotional)} ${s.symbol}, premium ${ethers.formatEther(premium)} sUSD, term ${policyTerm / 86_400n}d`);
+  }
+  const tokenId = primaryTokenId; // PRIMARY policy — simulate-depeg target.
+  console.log("");
 
   // ───────────────────────── artifact + env block ─────────────────────────
   const endBalance = await ethers.provider.getBalance(signer.address);
@@ -217,11 +275,13 @@ async function main() {
     agentPlatform: platformAddr,
     issuerJsonUrl,
     issuerPageUrl,
+    issuerSocialUrl,
     subscriptionId: subId.toString(),
-    demoTokenId: tokenId.toString(),
+    demoTokenId: tokenId.toString(), // PRIMARY stable's policy (simulate-depeg target)
+    demoTokens, // { SYMBOL: tokenId } for every insured stable
     contracts: {
       capital: capitalAddr,
-      insured: insuredAddr,
+      insured: insuredAddr, // PRIMARY (= stables[0]); kept for simulate-depeg back-compat
       priceOracle: priceOracleAddr,
       registry: registryAddr,
       pool: poolAddr,
@@ -229,6 +289,10 @@ async function main() {
       treasury: treasuryAddr,
       oracle: oracleAddr,
     },
+    // All insured stables (address + symbol + risk rate) for the frontend stable-selector.
+    stables: stables.map((s) => ({ address: s.address, symbol: s.symbol, name: s.name, annualRateBps: s.annualRateBps })),
+    // Source-verification targets for `pnpm verify:testnet` (address + FQN + constructor args).
+    verify: verifyTargets,
   };
 
   const outDir = path.join(__dirname, "..", "deployments");
@@ -247,7 +311,14 @@ async function main() {
   console.log(`NEXT_PUBLIC_POLICY_ADDRESS=${policyAddr}`);
   console.log(`NEXT_PUBLIC_TREASURY_ADDRESS=${treasuryAddr}`);
   console.log(`NEXT_PUBLIC_ORACLE_ADDRESS=${oracleAddr}`);
-  console.log("\nNext: pnpm simulate:depeg  (pushes USDC below peg and watches the pipeline to SETTLED)\n");
+  console.log("\nInsured stables:");
+  for (const s of stables) console.log(`  ${s.symbol}  ${s.address}  (policy #${demoTokens[s.symbol]})`);
+  console.log("\nExplorer links:");
+  for (const v of verifyTargets) console.log(`  ${v.name.padEnd(14)} ${explorerAddr(v.address)}`);
+  console.log("\nNext:");
+  console.log("  node script/gen-frontend.mjs   # resync frontend addresses + ABIs");
+  console.log("  pnpm verify:testnet            # source-verify all contracts on Shannon Explorer");
+  console.log("  pnpm simulate:depeg            # push USDC below peg, watch pipeline to SETTLED\n");
 }
 
 main().catch((err) => {

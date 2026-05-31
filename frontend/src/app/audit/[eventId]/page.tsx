@@ -22,7 +22,8 @@ type Receipt = {
 const STAGE_TITLE: Record<number, string> = {
   1: "Confirm — price basket",
   2: "Investigate — issuer disclosure",
-  3: "Classify — root cause",
+  3: "Investigate — status feed",
+  4: "Classify — root cause",
 };
 
 function decodeResult(stage: number, hex: string): string {
@@ -70,6 +71,7 @@ export default function AuditPage() {
         pendingRequestId: bigint;
         cause: number;
         disclosure: string;
+        disclosure2: string;
       }
     | undefined;
   const receipts = (data?.[1]?.result as Receipt[] | undefined) ?? [];
@@ -158,13 +160,25 @@ export default function AuditPage() {
             </div>
           </section>
 
-          {/* ── Disclosure evidence ── */}
-          {ev?.disclosure && (
-            <section className="section-pad rule-b">
-              <div className="field-label" style={{ marginBottom: 10 }}>Issuer disclosure (Agent #2 evidence)</div>
-              <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 20, lineHeight: 1.5, maxWidth: "62ch" }}>
-                “{ev.disclosure}”
-              </p>
+          {/* ── Disclosure evidence (two independent web sources) ── */}
+          {(ev?.disclosure || ev?.disclosure2) && (
+            <section className="section-pad rule-b" style={{ display: "grid", gap: 20 }}>
+              {ev?.disclosure && (
+                <div>
+                  <div className="field-label" style={{ marginBottom: 10 }}>Issuer disclosure (source #1 · homepage)</div>
+                  <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 20, lineHeight: 1.5, maxWidth: "62ch" }}>
+                    “{ev.disclosure}”
+                  </p>
+                </div>
+              )}
+              {ev?.disclosure2 && (
+                <div>
+                  <div className="field-label" style={{ marginBottom: 10 }}>Status feed (source #2 · social)</div>
+                  <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 20, lineHeight: 1.5, maxWidth: "62ch" }}>
+                    “{ev.disclosure2}”
+                  </p>
+                </div>
+              )}
             </section>
           )}
 
@@ -179,12 +193,16 @@ export default function AuditPage() {
                 const r0 = votes[0];
                 const agent = AGENT_LABELS[r0.agentId.toString()] ?? `Agent ${r0.agentId}`;
                 const successCount = votes.filter((v) => v.status === 2).length;
+                // 3-of-3 unanimity: every validator returned Success AND byte-identical results.
                 const agreed =
-                  successCount >= 2 &&
-                  votes
-                    .filter((v) => v.status === 2)
-                    .every((v) => v.result === votes.filter((x) => x.status === 2)[0].result);
-                const stamp = agreed ? "CONSENSUS" : successCount === 0 ? "FAILED" : "NO QUORUM";
+                  votes.length > 0 &&
+                  votes.every((v) => v.status === 2) &&
+                  votes.every((v) => v.result === votes[0].result);
+                const stamp = agreed
+                  ? `${votes.length}/${votes.length} CONSENSUS`
+                  : successCount === 0
+                    ? "FAILED"
+                    : "NO QUORUM";
                 const stampClass = agreed ? "violet" : "amber";
                 return (
                   <div key={r0.requestId.toString()} className="section-pad rule-b" style={{ position: "relative" }}>

@@ -50,11 +50,14 @@ const body =
       demoTokenId: deployment.demoTokenId,
       issuerJsonUrl: deployment.issuerJsonUrl,
       issuerPageUrl: deployment.issuerPageUrl,
+      issuerSocialUrl: deployment.issuerSocialUrl,
     },
     null,
     2,
   )} as const;\n\n` +
   `export const addresses = ${JSON.stringify(deployment.contracts, null, 2)} as const;\n\n` +
+  `export const stables = ${JSON.stringify(deployment.stables ?? [], null, 2)} as const;\n\n` +
+  `export const demoTokens = ${JSON.stringify(deployment.demoTokens ?? {}, null, 2)} as const;\n\n` +
   `export const abis = {\n` +
   Object.entries(abis)
     .map(([name, abi]) => `  ${name}: ${JSON.stringify(abi)} as const,`)

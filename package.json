@@ -10,6 +10,8 @@
     "test:hh": "hardhat test",
     "fmt": "forge fmt",
     "deploy:testnet": "hardhat run script/deploy.ts --network somniaTestnet",
+    "verify:testnet": "hardhat run script/verify.ts --network somniaTestnet",
+    "gen:frontend": "node script/gen-frontend.mjs",
     "simulate:depeg": "hardhat run script/simulate-depeg.ts --network somniaTestnet",
     "spike:fire": "hardhat run script/spike.ts --network somniaTestnet",
     "spike:reactivity": "hardhat run script/spike-reactivity.ts --network somniaTestnet"
