@@ -64,12 +64,21 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
     /// @notice topic0 for MockPriceOracle.PriceUpdated(address,uint256,uint64) — the detection event.
     bytes32 public constant PRICE_UPDATED_TOPIC = keccak256("PriceUpdated(address,uint256,uint64)");
 
-    /// @notice Subcommittee size requested for every agent call. The Oracle requires UNANIMITY across
-    ///         this full committee (3/3) — the product's whole thesis ("three independent validators
-    ///         agreed"). Achieved by `createAdvancedRequest` with threshold == size + ConsensusType
-    ///         .Threshold; a basic `createRequest` only returns a partial committee on Somnia testnet
-    ///         (verified — see docs/spike-results.md), which is why we use the advanced form.
+    /// @notice Subcommittee size requested for every agent call (full committee of 3).
     uint256 public constant SUBCOMMITTEE_SIZE = 3;
+
+    /// @notice TIERED CONSENSUS. The payout-gating stages — price `Confirm` and the `Classify` verdict —
+    ///         require strict UNANIMITY (3/3, byte-identical): the product thesis, "anything less than
+    ///         3-of-3 and the payout does not sign." Both are deterministic (a numeric price; a single
+    ///         token constrained via the classifier's `allowedValues`), so 3/3 is reliably achievable on
+    ///         testnet. The two `Parse-Website` investigate stages require a MAJORITY (2-of-3): that
+    ///         agent is a headless-browser+LLM scraper whose subcommittee intermittently musters only 2
+    ///         of 3 validators on testnet (verified empirically), so unanimity there would fail ~half the
+    ///         time on a quorum that nonetheless AGREES. Evidence gathering takes a majority; the verdict
+    ///         that signs the payout takes unanimity. `_requiredFor` encodes the per-stage rule and is
+    ///         passed as the `createAdvancedRequest` threshold (so the platform finalizes at the right
+    ///         count) and re-checked on-chain in `_consensusResult` (defence-in-depth).
+    uint256 public constant MAJORITY = SUBCOMMITTEE_SIZE / 2 + 1; // = 2
 
     /// @notice Timeout (seconds) handed to `createAdvancedRequest`. Must be > 0 (0 reverts on the
     ///         platform); 300 verified to collect a full 3/3 committee on testnet.
@@ -487,7 +496,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
             return;
         }
 
-        bytes memory consensus = _consensusResult(responses);
+        bytes memory consensus = _consensusResult(responses, _requiredFor(ctx.stage));
         if (consensus.length == 0) {
             // Overall-Success but no usable agreed payload — treat as a failure rather than decode-revert.
             _fail(ctx.eventId, e);
@@ -541,8 +550,8 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
 
         SentinelRegistry.StableConfig memory cfg = registry.getConfig(e.stable);
         string memory secondary = cfg.socialUrl;
-        bool hasSecond = bytes(secondary).length != 0
-            && keccak256(bytes(secondary)) != keccak256(bytes(cfg.homepageUrl));
+        bool hasSecond =
+            bytes(secondary).length != 0 && keccak256(bytes(secondary)) != keccak256(bytes(cfg.homepageUrl));
         if (hasSecond) {
             _dispatchInvestigate2(eventId, secondary); // stays Investigating
         } else {
@@ -664,24 +673,30 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         DepegEvent storage e = _events[eventId];
         e.stage = stage;
 
-        uint256 deposit = platform.getAdvancedRequestDeposit(SUBCOMMITTEE_SIZE) + (perAgentBudget * SUBCOMMITTEE_SIZE);
+        uint256 deposit =
+            platform.getAdvancedRequestDeposit(SUBCOMMITTEE_SIZE) + (perAgentBudget * SUBCOMMITTEE_SIZE);
         if (address(this).balance < deposit) {
             _fail(eventId, e);
             emit StageUnfunded(eventId, stage, deposit, address(this).balance);
             return;
         }
 
-        // Advanced request: full subcommittee + threshold == size + Threshold consensus → require 3/3.
+        // Advanced request: full subcommittee of 3; finalize at the per-stage threshold (3/3 for the
+        // payout-gating Confirm/Classify, 2-of-3 for the Parse-Website investigate stages). Threshold
+        // consensus means the platform fires the callback as soon as that many validators agree — so
+        // the majority stages don't stall waiting on an absent 3rd validator.
         try platform.createAdvancedRequest{ value: deposit }(
             agentId,
             address(this),
             IAgentCallback.handleResponse.selector,
             payload,
             SUBCOMMITTEE_SIZE,
-            SUBCOMMITTEE_SIZE,
+            _requiredFor(stage),
             IAgentPlatform.ConsensusType.Threshold,
             AGENT_TIMEOUT
-        ) returns (uint256 requestId) {
+        ) returns (
+            uint256 requestId
+        ) {
             _contexts[requestId] =
                 AgentContext({ eventId: eventId, stage: stage, agentId: agentId, exists: true });
             e.pendingRequestId = requestId;
@@ -724,30 +739,45 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
 
     // ─────────────────────────────── consensus ───────────────────────────────
 
-    /// @dev UNANIMITY gate (3/3): returns the agreed value only if the FULL subcommittee responded,
-    ///      every response is `Success`, and all results are byte-identical. Returns empty (→ the
-    ///      caller parks the event as `Failed`, retriable) on anything less — a missing validator, any
-    ///      non-Success, or any divergence. This is the on-chain enforcement of the product thesis:
-    ///      "three independent validators agreed, or no payout." The platform is also asked for
-    ///      Threshold consensus at size == threshold (see `_dispatch`), so this is defence-in-depth.
-    ///      O(n) over `SUBCOMMITTEE_SIZE` responses.
-    function _consensusResult(IAgentPlatform.Response[] memory responses)
+    /// @dev Per-stage consensus requirement (see `MAJORITY` docs): 3/3 unanimity for the payout-gating
+    ///      stages (`Confirm` price + `Classify` verdict), 2-of-3 majority for the `Parse-Website`
+    ///      investigate stages.
+    function _requiredFor(Stage stage) private pure returns (uint256) {
+        if (stage == Stage.Confirm || stage == Stage.Classify) return SUBCOMMITTEE_SIZE;
+        return MAJORITY;
+    }
+
+    /// @dev Consensus gate: returns the most-agreed `Success` result, but only if the number of
+    ///      validators returning that byte-identical value is `>= required`. With `required ==
+    ///      SUBCOMMITTEE_SIZE` this is strict 3/3 unanimity (a missing/dissenting/failed validator →
+    ///      empty); with `required == MAJORITY` it is a 2-of-3 quorum that still demands byte-identical
+    ///      agreement among the agreeing set. Empty return → caller parks the event `Failed` (retriable).
+    ///      The platform is also asked for Threshold consensus at this same count (see `_dispatch`), so
+    ///      this is defence-in-depth. O(n²) over `SUBCOMMITTEE_SIZE` (n ≤ 3) responses.
+    function _consensusResult(IAgentPlatform.Response[] memory responses, uint256 required)
         private
         pure
         returns (bytes memory agreed)
     {
-        // Require the full committee. Fewer responses than the committee size is not unanimity.
-        if (responses.length < SUBCOMMITTEE_SIZE) return "";
-
-        bytes32 h = keccak256(responses[0].result);
-        uint256 successes;
+        uint256 bestCount;
+        bytes memory best;
         for (uint256 i; i < responses.length; ++i) {
-            if (responses[i].status != IAgentPlatform.ResponseStatus.Success) return "";
-            if (keccak256(responses[i].result) != h) return ""; // any divergence → no consensus
-            ++successes;
+            if (responses[i].status != IAgentPlatform.ResponseStatus.Success) continue;
+            bytes32 hi = keccak256(responses[i].result);
+            uint256 count;
+            for (uint256 j; j < responses.length; ++j) {
+                if (
+                    responses[j].status == IAgentPlatform.ResponseStatus.Success
+                        && keccak256(responses[j].result) == hi
+                ) ++count;
+            }
+            if (count > bestCount) {
+                bestCount = count;
+                best = responses[i].result;
+            }
         }
-        if (successes < SUBCOMMITTEE_SIZE) return "";
-        return responses[0].result;
+        if (bestCount < required) return "";
+        return best;
     }
 
     /// @dev Park an event in `Failed` and free the stable's live slot. Freeing the slot is essential:

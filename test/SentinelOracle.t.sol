@@ -216,8 +216,9 @@ contract SentinelOracleTest is Test {
         assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Failed));
     }
 
-    /// @notice Under 3/3 unanimity, a 2-of-3 majority (one dissenter) is NOT consensus → Failed.
-    function test_majority_2of3_fails_under_unanimity() public {
+    /// @notice CONFIRM is a payout-gating stage → strict 3/3. A 2-of-3 majority (one dissenter) is NOT
+    ///         consensus there → Failed.
+    function test_confirm_majority_2of3_fails() public {
         _emit(stable, 0.98e18);
         uint256 eventId = oracle.nextEventId() - 1;
         // Two agree on 0.94, one dissents → not unanimous → no payout path.
@@ -225,11 +226,57 @@ contract SentinelOracleTest is Test {
         assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Failed));
     }
 
-    /// @notice Under 3/3 unanimity, only 2 of 3 validators responding is NOT enough → Failed.
-    function test_partial_2_responders_fails_under_unanimity() public {
+    /// @notice CONFIRM strict 3/3: only 2 of 3 validators responding is NOT enough → Failed.
+    function test_confirm_partial_2_responders_fails() public {
         _emit(stable, 0.98e18);
         uint256 eventId = oracle.nextEventId() - 1;
         platform.deliverPartial(1, abi.encode(uint256(0.94e18)));
+        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Failed));
+    }
+
+    // ─────────────────────── tiered consensus: investigate = 2-of-3 majority ───────────────────────
+
+    /// @notice INVESTIGATE (Parse-Website evidence) advances on a 2-of-3 majority — two validators agree,
+    ///         one dissents. The heavy scraper agent only reliably musters a quorum on testnet, so
+    ///         evidence gathering takes a majority (the Classify verdict still takes 3/3). Single-source
+    ///         stable → advances straight to Classifying.
+    function test_investigate_advances_on_2of3_majority() public {
+        _emit(stable, 0.98e18);
+        uint256 eventId = oracle.nextEventId() - 1;
+        platform.deliverUnanimous(1, abi.encode(uint256(0.94e18))); // confirm 3/3 → investigate (req 2)
+        platform.deliverMajority(2, abi.encode("Exploit confirmed."), abi.encode("unrelated"));
+        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Classifying));
+    }
+
+    /// @notice INVESTIGATE advances when only 2 of 3 validators respond (both agreeing) — the absent 3rd
+    ///         is the exact testnet failure this tiering fixes.
+    function test_investigate_advances_on_2_responders() public {
+        _emit(stable, 0.98e18);
+        uint256 eventId = oracle.nextEventId() - 1;
+        platform.deliverUnanimous(1, abi.encode(uint256(0.94e18))); // → investigate (req 2)
+        platform.deliverPartial(2, abi.encode("Exploit confirmed."));
+        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Classifying));
+    }
+
+    /// @notice Majority still demands byte-identical agreement: 3 divergent investigate results (no two
+    ///         alike) is below the 2-of-3 quorum → Failed.
+    function test_investigate_fails_when_no_two_agree() public {
+        _emit(stable, 0.98e18);
+        uint256 eventId = oracle.nextEventId() - 1;
+        platform.deliverUnanimous(1, abi.encode(uint256(0.94e18))); // → investigate (req 2)
+        platform.deliverNoConsensus(2, abi.encode("a"), abi.encode("b"), abi.encode("c"));
+        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Failed));
+    }
+
+    /// @notice CLASSIFY is the payout-signing verdict → strict 3/3. A 2-of-3 majority on the classifier
+    ///         (two say EXPLOIT, one says BANK_RUN) does NOT sign → Failed, even though investigate only
+    ///         needed a majority. This is the heart of the thesis: the verdict requires unanimity.
+    function test_classify_majority_2of3_fails() public {
+        _emit(stable, 0.98e18);
+        uint256 eventId = oracle.nextEventId() - 1;
+        platform.deliverUnanimous(1, abi.encode(uint256(0.94e18))); // → investigate (req 2)
+        platform.deliverUnanimous(2, abi.encode("Exploit confirmed.")); // → classify (req 3, single-source)
+        platform.deliverMajority(3, abi.encode("SMART_CONTRACT_EXPLOIT"), abi.encode("BANK_RUN"));
         assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Failed));
     }
 
@@ -312,7 +359,15 @@ contract SentinelOracleTest is Test {
         address two = makeAddr("TWOx");
         vm.startPrank(operator);
         registry.registerStable(
-            two, WAD, THRESHOLD_BPS, MIN_DURATION, 50, tiers, "https://home.example", "https://social.example", "r"
+            two,
+            WAD,
+            THRESHOLD_BPS,
+            MIN_DURATION,
+            50,
+            tiers,
+            "https://home.example",
+            "https://social.example",
+            "r"
         );
         oracle.setConfirmFeed(two, "https://basket.example/price", "price", 18);
         vm.stopPrank();
@@ -325,7 +380,11 @@ contract SentinelOracleTest is Test {
 
         platform.deliverUnanimous(2, abi.encode("Homepage: exploit confirmed.")); // → investigate2 (req 3)
         SentinelOracle.DepegEvent memory e = oracle.getEvent(eventId);
-        assertEq(uint8(e.state), uint8(SentinelOracle.EventState.Investigating), "stays investigating for 2nd source");
+        assertEq(
+            uint8(e.state),
+            uint8(SentinelOracle.EventState.Investigating),
+            "stays investigating for 2nd source"
+        );
         assertEq(e.disclosure, "Homepage: exploit confirmed.");
 
         platform.deliverUnanimous(3, abi.encode("Social: team confirms reentrancy drain.")); // → classify (req 4)

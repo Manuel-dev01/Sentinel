@@ -193,13 +193,19 @@ export default function AuditPage() {
                 const r0 = votes[0];
                 const agent = AGENT_LABELS[r0.agentId.toString()] ?? `Agent ${r0.agentId}`;
                 const successCount = votes.filter((v) => v.status === 2).length;
-                // 3-of-3 unanimity: every validator returned Success AND byte-identical results.
-                const agreed =
-                  votes.length > 0 &&
-                  votes.every((v) => v.status === 2) &&
-                  votes.every((v) => v.result === votes[0].result);
+                const COMMITTEE = 3;
+                // Tiered consensus: Confirm (stage 1) + Classify (stage 4) sign the payout → require 3/3.
+                // The Parse-Website investigate stages (2,3) gather evidence → 2-of-3 majority.
+                const required = r0.stage === 1 || r0.stage === 4 ? 3 : 2;
+                // Largest set of byte-identical Success votes (the agreeing quorum).
+                const success = votes.filter((v) => v.status === 2);
+                const agreedCount = success.reduce(
+                  (max, v) => Math.max(max, success.filter((x) => x.result === v.result).length),
+                  0,
+                );
+                const agreed = agreedCount >= required;
                 const stamp = agreed
-                  ? `${votes.length}/${votes.length} CONSENSUS`
+                  ? `${agreedCount}/${COMMITTEE} CONSENSUS`
                   : successCount === 0
                     ? "FAILED"
                     : "NO QUORUM";

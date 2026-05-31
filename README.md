@@ -125,7 +125,7 @@ Consensus-validated AI classification + keeperless on-chain detection are the tw
 
 ## Deployed addresses (Somnia testnet)
 
-> Redeployed and **source-verified** on Shannon Explorer 2026-05-31 (chain id 50312). This deployment runs **3-of-3 validator unanimity** (`createAdvancedRequest`, `ConsensusType.Threshold`) and a **sequential two-source investigation** (issuer disclosure + status feed). Two stablecoins (USDC + USDT) are independently insurable. Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by the `/audit` screen — no off-chain indexer.
+> Source-verified on Shannon Explorer 2026-05-31 (chain id 50312). Runs **tiered validator consensus** (`createAdvancedRequest`, `ConsensusType.Threshold`): the payout-signing stages — price **Confirm** and the **Classify** verdict — require strict **3-of-3 unanimity**, while the two Parse-Website **investigate** stages (free-form web evidence) require a **2-of-3 majority** (that agent only reliably musters a quorum on testnet). Plus a **sequential two-source investigation** (issuer disclosure + status feed). Two stablecoins (USDC + USDT) are independently insurable. Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by `/audit` — no off-chain indexer. *(Addresses below predate the tiered-consensus change; redeploy + `pnpm verify:testnet` refreshes them.)*
 >
 > All contracts below carry the green “Verified” tab on the explorer. Re-verify any deploy with `pnpm verify:testnet` (forge → Blockscout). Note: Shannon Explorer’s indexer flags a freshly-deployed address as a contract a few minutes after deploy; verification (and the Code/Read/Write tabs) only become available once it does.
 
