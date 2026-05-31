@@ -1,36 +1,46 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Anton, Newsreader, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { PaperGrain } from "@/components/PaperGrain";
+import { Header } from "@/components/Header";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Brand fonts — must match sentinel_landing_page (Editorial Technical v2).
+const anton = Anton({ weight: "400", subsets: ["latin"], variable: "--font-display", display: "swap" });
+const newsreader = Newsreader({
+  weight: "400",
+  style: "italic",
   subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
 });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const mono = JetBrains_Mono({
+  weight: ["400", "500"],
   subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Sentinel — Agent-native depeg insurance",
+  title: "Sentinel — Incident Desk",
   description:
-    "Parametric stablecoin depeg insurance with a consensus-validated AI investigation, on Somnia.",
+    "Agent-native parametric depeg insurance on Somnia. Detect, investigate, pay — in the same block.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        <Providers>{children}</Providers>
+    <html lang="en" className={`${anton.variable} ${newsreader.variable} ${mono.variable}`}>
+      <body>
+        <a href="#main" className="skip">
+          Skip to content
+        </a>
+        <PaperGrain />
+        <Providers>
+          <Header />
+          <main id="main" className="app-main frame">
+            {children}
+          </main>
+        </Providers>
       </body>
     </html>
   );

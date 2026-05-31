@@ -173,11 +173,38 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
     struct AgentContext {
         uint256 eventId;
         Stage stage;
+        uint256 agentId;
         bool exists;
+    }
+
+    /// @notice A single validator's response, persisted on-chain for the audit trail. The `/audit`
+    ///         screen reads these directly via `getReceipts` — there is no off-chain indexer (the
+    ///         receipt is a first-class on-chain artifact, not just an event). One entry per response
+    ///         across every stage of an event, in arrival order.
+    /// @param stage         Which agent produced this response (Confirm/Investigate/Classify).
+    /// @param requestId     The platform request this response belongs to (groups votes per agent call).
+    /// @param agentId       The agent invoked — lets the UI label the agent type.
+    /// @param validator     The subcommittee validator that returned this response.
+    /// @param status        That validator's individual ResponseStatus.
+    /// @param result        Raw result bytes (decoded client-side per stage: WAD price / text / token).
+    /// @param executionCost Cost reported by this validator (native token).
+    /// @param receiptId     The platform's receipt id for this response.
+    /// @param timestamp     Block timestamp when the response was recorded on-chain.
+    struct Receipt {
+        Stage stage;
+        uint256 requestId;
+        uint256 agentId;
+        address validator;
+        IAgentPlatform.ResponseStatus status;
+        bytes result;
+        uint256 executionCost;
+        uint256 receiptId;
+        uint64 timestamp;
     }
 
     mapping(uint256 eventId => DepegEvent) private _events;
     mapping(uint256 requestId => AgentContext) private _contexts;
+    mapping(uint256 eventId => Receipt[]) private _receipts;
 
     /// @notice Per-stable confirmation feed (the independent price basket for Agent #1).
     struct ConfirmFeed {
@@ -413,8 +440,22 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         }
         e.pendingRequestId = 0;
 
-        // Record every validator response for the audit trail, regardless of outcome.
+        // Record every validator response for the audit trail, regardless of outcome — both as a
+        // persisted Receipt (read by the /audit screen via getReceipts) and as an event.
         for (uint256 i; i < responses.length; ++i) {
+            _receipts[ctx.eventId].push(
+                Receipt({
+                    stage: ctx.stage,
+                    requestId: requestId,
+                    agentId: ctx.agentId,
+                    validator: responses[i].validator,
+                    status: responses[i].status,
+                    result: responses[i].result,
+                    executionCost: responses[i].executionCost,
+                    receiptId: responses[i].receipt,
+                    timestamp: uint64(block.timestamp)
+                })
+            );
             emit AgentReceiptRecorded(
                 ctx.eventId,
                 requestId,
@@ -590,7 +631,8 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         ) returns (
             uint256 requestId
         ) {
-            _contexts[requestId] = AgentContext({ eventId: eventId, stage: stage, exists: true });
+            _contexts[requestId] =
+                AgentContext({ eventId: eventId, stage: stage, agentId: agentId, exists: true });
             e.pendingRequestId = requestId;
             emit AgentRequested(eventId, requestId, stage, agentId, deposit);
         } catch {
@@ -754,6 +796,19 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
     /// @notice The event + stage a given platform request maps to.
     function contextOf(uint256 requestId) external view returns (AgentContext memory) {
         return _contexts[requestId];
+    }
+
+    /// @notice All persisted validator receipts for an event, in arrival order across every stage.
+    ///         The /audit centerpiece groups these by (stage, requestId) to render each agent call
+    ///         with its side-by-side per-validator votes. Returns empty for an unknown event (no
+    ///         revert — UI-friendly).
+    function getReceipts(uint256 eventId) external view returns (Receipt[] memory) {
+        return _receipts[eventId];
+    }
+
+    /// @notice Number of persisted receipts for an event (cheap length probe for the UI).
+    function receiptCount(uint256 eventId) external view returns (uint256) {
+        return _receipts[eventId].length;
     }
 
     /// @notice Native value forwarded for one request at a given per-validator budget.

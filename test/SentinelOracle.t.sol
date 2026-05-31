@@ -258,6 +258,48 @@ contract SentinelOracleTest is Test {
         assertEq(vDev, 600);
     }
 
+    // ─────────────────────── on-chain receipts (audit centerpiece data) ───────────────────────
+
+    /// @notice Every validator vote across all three stages is persisted on-chain (the `/audit` screen
+    ///         reads these via `getReceipts` — no off-chain indexer). Locks the shape the UI depends on.
+    function test_getReceipts_records_every_validator_vote_across_stages() public {
+        uint256 eventId = _runToClassified(0.98e18, 0.94e18, "SMART_CONTRACT_EXPLOIT");
+
+        SentinelOracle.Receipt[] memory rs = oracle.getReceipts(eventId);
+        // 3 stages × 3 validators (deliverUnanimous sends 3 each).
+        assertEq(rs.length, 9, "one receipt per validator per stage");
+        assertEq(oracle.receiptCount(eventId), 9);
+
+        // Stage 1: Confirm (JSON API agent), grouped under requestId 1, all Success.
+        for (uint256 i; i < 3; ++i) {
+            assertEq(uint8(rs[i].stage), uint8(SentinelOracle.Stage.Confirm));
+            assertEq(rs[i].agentId, oracle.jsonApiAgentId());
+            assertEq(rs[i].requestId, 1);
+            assertEq(uint8(rs[i].status), uint8(IAgentPlatform.ResponseStatus.Success));
+        }
+        // Stage 2: Investigate (Parse Website agent), requestId 2.
+        assertEq(uint8(rs[3].stage), uint8(SentinelOracle.Stage.Investigate));
+        assertEq(rs[3].agentId, oracle.parseWebsiteAgentId());
+        assertEq(rs[3].requestId, 2);
+        // Stage 3: Classify (LLM Inference agent), requestId 3; result decodes to the token.
+        assertEq(uint8(rs[6].stage), uint8(SentinelOracle.Stage.Classify));
+        assertEq(rs[6].agentId, oracle.llmInferenceAgentId());
+        assertEq(rs[6].requestId, 3);
+        assertEq(abi.decode(rs[6].result, (string)), "SMART_CONTRACT_EXPLOIT");
+    }
+
+    /// @notice Failed-stage votes are persisted too — the audit trail shows *why* a stage failed.
+    function test_getReceipts_captures_failed_stage_votes() public {
+        _emit(stable, 0.98e18);
+        uint256 eventId = oracle.nextEventId() - 1;
+        platform.deliverFailed(1); // confirm fails (3 validators, status Failed)
+
+        SentinelOracle.Receipt[] memory rs = oracle.getReceipts(eventId);
+        assertEq(rs.length, 3, "failed-stage votes are still persisted for the audit trail");
+        assertEq(uint8(rs[0].status), uint8(IAgentPlatform.ResponseStatus.Failed));
+        assertEq(uint8(rs[0].stage), uint8(SentinelOracle.Stage.Confirm));
+    }
+
     // ──────────────────────── callback access control & robustness ────────────────────────
 
     function test_handleResponse_only_platform() public {
