@@ -486,9 +486,7 @@ contract SentinelOracleTest is Test {
         assertEq(oracle.liveEventOf(stable), second);
 
         vm.prank(operator);
-        vm.expectRevert(
-            abi.encodeWithSelector(SentinelOracle.StableHasLiveEvent.selector, stable, second)
-        );
+        vm.expectRevert(abi.encodeWithSelector(SentinelOracle.StableHasLiveEvent.selector, stable, second));
         oracle.retry(first);
     }
 

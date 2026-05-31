@@ -8,6 +8,11 @@ The investigation itself is consensus-validated: multiple independent validators
 
 > Built for the **Somnia Agentathon** (Encode Club, 2026).
 
+[![CI](https://github.com/Manuel-dev01/Sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/Manuel-dev01/Sentinel/actions/workflows/ci.yml)
+&nbsp;![Solidity](https://img.shields.io/badge/Solidity-0.8.30-363636)
+&nbsp;![Foundry](https://img.shields.io/badge/tested%20with-Foundry-black)
+&nbsp;![Somnia testnet](https://img.shields.io/badge/Somnia-testnet%2050312-7000FF)
+
 ---
 
 ## The problem
@@ -89,8 +94,8 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 | **0 · Verify & scaffold** | ✅ Done — Foundry + Hardhat + Next.js on Somnia testnet; live docs verified |
 | **0 · Riskiest-path spike** | ✅ **Passed (2026-05-29)** — both agents reached validator consensus on testnet ([`docs/spike-results.md`](docs/spike-results.md)) |
 | **2 · Core engine** | ✅ **Done (2026-05-31)** — all five contracts built, tested, deployed + wired on testnet; `simulate-depeg` ran the full detect→classify→payout chain autonomously in ~27s |
-| **3 · Frontend** | ⬜ — peg dashboard, policies, LP, audit trail |
-| **4 · Harden & ship** | ⬜ — fuzz/invariants, video, submission |
+| **3 · Frontend** | ✅ **Done (2026-05-31)** — peg dashboard, coverage, LP, and the on-chain audit centerpiece, on the Editorial-Technical brand system; in-UI claim/settle + live pipeline stepper |
+| **4 · Harden & ship** | 🚧 In progress — 121 tests green, security checklist passed, CI live; remaining: demo video + submission |
 
 **Phase 2 progress** (bottom-up by dependency — `Registry`/libs → `Pool` → `Policy` → `Treasury` → `Oracle`):
 
@@ -106,7 +111,7 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 | Deploy + wire + simulate | `script/deploy.ts` (deploy 8 contracts, wire roles, register, fund+arm, seed, buy) + `script/simulate-depeg.ts` (trigger → pipeline → settle) | ✅ **ran live on testnet** — full 3-agent chain settled an exploit payout in ~27s (addresses below) |
 | Full 3-agent chain (live) | Reactivity → JSON-API confirm → LLM Parse-Website investigate → LLM-Inference classify → payout, end-to-end on testnet | ✅ proven 2026-05-31 (sequential blocks, all stages reached validator consensus) |
 
-**119 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences, a reentrancy-attack regression test on the payout path, and a full Oracle state-machine suite (26 tests) driven by a mock 3-validator agent platform (every `ResponseStatus` branch, callback idempotency, detection gating, an agent-payload selector lock, and the free-the-live-slot-on-failure regression).
+**121 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences, a reentrancy-attack regression test on the payout path, and a full Oracle state-machine suite (28 tests) driven by a mock 3-validator agent platform (every `ResponseStatus` branch, callback idempotency, detection gating, an agent-payload selector lock, the free-the-live-slot-on-failure regression, and on-chain-receipt persistence). CI (`.github/workflows/ci.yml`) runs `forge fmt`/`build`/`test` + the frontend typecheck/build on every push.
 
 **Both Somnia primitives are proven on-chain** — this is the project's core de-risking:
 
@@ -154,6 +159,30 @@ CLAUDE.md       Engineering manual (project source of truth)
 - [**Architecture**](docs/ARCHITECTURE.md) — system design, the event state machine, agent orchestration, contract responsibilities, design-decision log.
 - [**Demo runbook**](docs/DEMO.md) — the minute-by-minute demo script, deterministic setup, and live-failure fallback.
 - [**Security**](docs/SECURITY.md) — threat model, trust assumptions, attack vectors and mitigations, prototype limitations.
+
+## Scope status — what's shipped, what's stretch, what's left
+
+**MVP (all shipped):** one insured stablecoin · full autonomous detect→confirm→investigate→classify→pay flow with all three agents · exploit→immediate-payout hero path · LP deposit/withdraw · policy buy/claim · the on-chain audit screen · deterministic demo · testnet deploy · README + architecture/security/demo docs.
+
+**Stretch (§19) status:**
+
+| Item | Status |
+|---|---|
+| Full vesting for all classes | ✅ Done — `PayoutMath.timing` covers all 5 causes; Treasury executes immediate/vested/delayed |
+| Multiple deviation tiers | ✅ Done — 3-tier payout scaling, configurable per stable |
+| LI.FI deposits | ✅ Done (pragmatic) — Jumper deep-link funding panel on `/lp` + `/policies` (Somnia + USDC.e) |
+| Multiple stablecoins | 🟡 Partial — Registry fully supports it; the deploy + frontend are single-stable |
+| APY analytics | ✅ Done — estimated LP yield from active coverage on `/lp` |
+| CI badges | ✅ Done — GitHub Actions + badge (this section's top) |
+| Mainnet deploy | ❌ Deferred — unaudited; testnet-first by design (CLAUDE.md §25) |
+| 2nd agent target (GitHub commits) | ❌ Not done — investigate uses the issuer page only; `socialUrl`/`repoUrl` are stored but unwired |
+
+**What's left to be submission-complete:**
+- **Demo video** (2–5 min, §17) — not recorded.
+- **Manual wallet pass** — the live connect→simulate→claim click-through (HTTP/SSR render is verified; wallet interaction needs a browser + the operator wallet).
+- **Deploy the dApp to Vercel** + set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (the mock-issuer site is already deployed and wired).
+
+**Known gaps / non-blocking notes:** the audit route is `/audit/[eventId]` (per-event), not the literal `[requestId]` in §12; `deployments/` is untracked (addresses live in this README + the local artifact); the frontend has no unit tests (contracts are fully covered); `next dev` OOMs on low-memory hosts — use `next build && next start`.
 
 ## Roadmap (post-hackathon)
 

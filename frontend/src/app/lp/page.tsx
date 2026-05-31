@@ -26,6 +26,7 @@ export default function LiquidityPage() {
       { ...CONTRACTS.pool, functionName: "totalShares" },
       { ...CONTRACTS.pool, functionName: "convertToAssets", args: [parseEther("1")] },
       { ...CONTRACTS.oracle, functionName: "liveEventOf", args: [INSURED] },
+      { ...CONTRACTS.registry, functionName: "getConfig", args: [INSURED] },
     ],
     query: { refetchInterval: 5000 },
   });
@@ -46,6 +47,13 @@ export default function LiquidityPage() {
   const totalShares = (g?.[4]?.result as bigint) ?? 0n;
   const navPerShare = (g?.[5]?.result as bigint) ?? parseEther("1");
   const liveEventId = (g?.[6]?.result as bigint) ?? 0n;
+  const cfg = g?.[7]?.result as { annualRateBps: number } | undefined;
+
+  // Estimated LP yield: annual premium income from active coverage ÷ pool capital.
+  // premium/yr ≈ outstandingLiability × annualRateBps; APY ≈ that / totalAssets (WADs cancel → bps).
+  const annualRateBps = cfg?.annualRateBps ?? 0;
+  const apyPct =
+    totalAssets > 0n ? Number((liability * BigInt(annualRateBps)) / totalAssets) / 100 : 0;
 
   const myShares = (u?.[0]?.result as bigint) ?? 0n;
   const myBalance = (u?.[1]?.result as bigint) ?? 0n;
@@ -118,9 +126,9 @@ export default function LiquidityPage() {
           <div className="s-lbl">Total pool capital</div>
         </div>
         <div className="stat">
-          <div className="s-no">[ EXPO ]</div>
-          <div className="s-val tnum">{fmtCompact(liability)}</div>
-          <div className="s-lbl">Outstanding liability</div>
+          <div className="s-no">[ APY ]</div>
+          <div className="s-val tnum">{apyPct.toFixed(2)}<span className="u">%</span></div>
+          <div className="s-lbl">Est. yield · active coverage</div>
         </div>
         <div className="stat">
           <div className="s-no">[ UTIL ]</div>
@@ -177,6 +185,7 @@ export default function LiquidityPage() {
           </div>
           <div className="kv"><span className="k">Your position</span><span className="v">{fmtWad(myValue)} sUSD · {fmtWad(myShares)} shares</span></div>
           <div className="kv"><span className="k">Available now</span><span className="v">{fmtCompact(available)} sUSD</span></div>
+          <div className="kv"><span className="k">Pool exposure</span><span className="v">{fmtCompact(liability)} sUSD outstanding</span></div>
           {isConnected ? (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button className="pill full" onClick={onWithdraw} disabled={busy || withdrawWei === 0n || locked}>
