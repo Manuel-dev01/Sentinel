@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useBlockNumber } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { ConnectWallet } from "./ConnectWallet";
 
 const NAV = [
   { href: "/", label: "Dashboard" },
@@ -66,7 +66,7 @@ export function Header() {
         </div>
 
         <div className="nav-cta">
-          <ConnectButton showBalance={false} chainStatus="icon" accountStatus="address" />
+          <ConnectWallet />
         </div>
       </div>
     </nav>

@@ -33,7 +33,7 @@ This document records Sentinel's threat model, trust assumptions, and the mitiga
 
 ### Reentrancy
 *Risk:* a malicious recipient re-enters during payout to drain the pool.
-*Mitigation:* Checks-Effects-Interactions on all value-moving functions; `ReentrancyGuard` on `claim`, `executeImmediate`, `claimVested`, and `withdraw`; SafeERC20 for transfers; pull-over-push where feasible.
+*Mitigation:* Checks-Effects-Interactions on all value-moving functions; `ReentrancyGuard` on the Treasury's `settle` / `claimVested` and the Pool's `deposit` / `redeem`; SafeERC20 for transfers; per-policy settlement (not an unbounded loop) so payout is one bounded tx. A re-entrant capital token is regression-tested against the vested-claim path.
 
 ### LP capital drain / griefing
 *Risk:* an LP withdraws capital needed to cover a settling event, or the pool oversells coverage.
@@ -53,7 +53,7 @@ This document records Sentinel's threat model, trust assumptions, and the mitiga
 
 ### Access control
 *Risk:* unauthorized config changes or payouts.
-*Mitigation:* `OPERATOR_ROLE` for config + pause; payout pulls restricted to the Treasury; the Treasury's `routePayouts` callable only by the Oracle; no unguarded upgrade or `selfdestruct` paths.
+*Mitigation:* `OPERATOR_ROLE` for config + pause; payout pulls restricted to the Treasury (`TREASURY_ROLE` on the Pool); the Treasury's `recordVerdict` (the spec's `routePayouts`) callable only by the Oracle (`ORACLE_ROLE`); the Oracle's `handleResponse` gated to the agent platform and `_onEvent` to the Reactivity precompile; no unguarded upgrade or `selfdestruct` paths. The on-chain audit receipts (`getReceipts`) are append-only and read-only — they add no value-moving surface.
 
 ## 3. Emergency controls
 

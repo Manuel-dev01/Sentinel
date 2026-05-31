@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { parseEther } from "viem";
-import { useAccount, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import {
+  useAccount,
+  useReadContract,
+  useReadContracts,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { CONTRACTS, INSURED, EVENT_STATE } from "@/lib/contracts";
 import { fmtPrice, fmtCompact, fmtBpsPct, deviationBps } from "@/lib/format";
 
@@ -54,6 +60,17 @@ export default function Dashboard() {
       : nextEventId && nextEventId > 1n
         ? nextEventId - 1n
         : undefined;
+
+  // Follow the current event's state for the live pipeline stepper. Polls faster while in flight.
+  const inFlight = !!liveEventId && liveEventId !== 0n;
+  const { data: evt } = useReadContract({
+    ...CONTRACTS.oracle,
+    functionName: "getEvent",
+    args: [auditEventId ?? 0n],
+    query: { enabled: !!auditEventId, refetchInterval: inFlight ? 2000 : 6000 },
+  });
+  const eventState = (evt as { state: number } | undefined)?.state;
+  const eventStage = (evt as { stage: number } | undefined)?.stage;
 
   // Operator controls — push the insured below peg / reset it.
   const { writeContract, data: txHash, isPending } = useWriteContract();
@@ -145,13 +162,20 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Live pipeline stepper */}
+        {auditEventId && eventState !== undefined && (
+          <div className="section-pad" style={{ borderTop: "1px solid var(--line-d)" }}>
+            <PipelineStepper state={eventState} stage={eventStage} />
+          </div>
+        )}
+
         {/* Pipeline status strip */}
         <div className="pm-foot">
           <span>
-            {liveEventId && liveEventId !== 0n
+            {inFlight
               ? `EVENT #${liveEventId} · IN FLIGHT`
               : auditEventId
-                ? `LAST EVENT #${auditEventId} · CLOSED`
+                ? `LAST EVENT #${auditEventId} · ${eventState !== undefined ? EVENT_STATE[eventState].toUpperCase() : "CLOSED"}`
                 : "NO ACTIVE EVENT"}
           </span>
           <span>FIG. 01 · REACTIVITY HANDLER</span>
@@ -193,6 +217,51 @@ export default function Dashboard() {
         Insured: {INSURED} · Detection: Somnia Reactivity → SentinelOracle._onEvent · Liability{" "}
         {fmtCompact(liability)} sUSD outstanding.
       </div>
+    </div>
+  );
+}
+
+/**
+ * Live pipeline stepper — maps the on-chain event state to the detect→settle beats.
+ * Polled (not log-subscribed) for robustness against Somnia's 1000-block getLogs cap.
+ */
+function PipelineStepper({ state, stage }: { state: number; stage?: number }) {
+  const STEPS = ["Detect", "Confirm", "Investigate", "Classify", "Settled"];
+  // state: 1 Confirming · 2 Investigating · 3 Classifying · 4 Classified · 5 Dismissed · 6 Failed
+  const active = state >= 1 && state <= 4 ? state : state === 4 ? 4 : -1;
+  const dismissed = state === 5;
+  const failed = state === 6;
+  const failedAt = failed ? (stage ?? 1) : -1; // Stage enum: 1 Confirm,2 Investigate,3 Classify
+
+  return (
+    <div style={{ display: "flex", alignItems: "stretch", gap: 0, flexWrap: "wrap" }}>
+      {STEPS.map((label, i) => {
+        let color = "var(--off-3)";
+        let dot = "var(--off-3)";
+        let note = "";
+        if (failed && i === failedAt) {
+          color = "var(--red)"; dot = "var(--red)"; note = "FAILED";
+        } else if (dismissed && i === 1) {
+          color = "var(--amber)"; dot = "var(--amber)"; note = "DISMISSED";
+        } else if (state === 4 || i < active) {
+          color = "var(--green)"; dot = "var(--green)"; note = "DONE";
+        } else if (i === active && !dismissed && !failed) {
+          color = "var(--violet-soft)"; dot = "var(--violet)"; note = "RUNNING";
+        }
+        return (
+          <div key={label} style={{ flex: "1 1 0", minWidth: 110, display: "grid", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot }} className={note === "RUNNING" ? "animate-pulse-dot" : undefined} />
+              <span style={{ height: 1, flex: 1, background: i < active || state === 4 ? "var(--green)" : "var(--line-d)" }} />
+            </div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 12, letterSpacing: "0.08em", color }}>
+              <span style={{ color: "var(--off-3)" }}>T+{i} </span>
+              {label}
+            </div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 9.5, letterSpacing: "0.18em", color: dot, minHeight: 12 }}>{note}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }

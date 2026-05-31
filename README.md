@@ -120,17 +120,17 @@ Consensus-validated AI classification + keeperless on-chain detection are the tw
 
 ## Deployed addresses (Somnia testnet)
 
-> Deployed and verified end-to-end on 2026-05-31 (chain id 50312). The full detect → confirm → investigate → classify → payout flow ran autonomously in **~27 s** on this deployment (`SMART_CONTRACT_EXPLOIT`, 100% immediate payout).
+> Deployed and verified end-to-end on 2026-05-31 (chain id 50312). The full detect → confirm → investigate → classify → payout flow ran autonomously in **~26 s** on this deployment (`SMART_CONTRACT_EXPLOIT`, 100% immediate payout). Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by the `/audit` screen — no off-chain indexer.
 
 | Contract | Address |
 |---|---|
-| SentinelRegistry | [`0x66aec29df55d98897a212405a3Ba96B2EE33F46f`](https://shannon-explorer.somnia.network/address/0x66aec29df55d98897a212405a3Ba96B2EE33F46f) |
-| SentinelPool | [`0x3BcD05d8321907E30FF8E3096072B35836FF760D`](https://shannon-explorer.somnia.network/address/0x3BcD05d8321907E30FF8E3096072B35836FF760D) |
-| SentinelPolicy | [`0x881440753d341626E84991769D38a1649b62275f`](https://shannon-explorer.somnia.network/address/0x881440753d341626E84991769D38a1649b62275f) |
-| SentinelTreasury | [`0x779A2e419A37854CEb469F9c10d2Eb46A5eb3645`](https://shannon-explorer.somnia.network/address/0x779A2e419A37854CEb469F9c10d2Eb46A5eb3645) |
-| SentinelOracle | [`0xD38B6F33EcaeF6806c33d8c005cF46F2A8Eaa0aD`](https://shannon-explorer.somnia.network/address/0xD38B6F33EcaeF6806c33d8c005cF46F2A8Eaa0aD) |
+| SentinelRegistry | [`0xBb4a01D4903bDD23E5e164E38eF988734667fdA8`](https://shannon-explorer.somnia.network/address/0xBb4a01D4903bDD23E5e164E38eF988734667fdA8) |
+| SentinelPool | [`0x1dB5c35a327338DD6d225617Dc5415d33c4002Fc`](https://shannon-explorer.somnia.network/address/0x1dB5c35a327338DD6d225617Dc5415d33c4002Fc) |
+| SentinelPolicy | [`0x4966DDf7f8b74Ec07Dce1d148fe9B06702624F7E`](https://shannon-explorer.somnia.network/address/0x4966DDf7f8b74Ec07Dce1d148fe9B06702624F7E) |
+| SentinelTreasury | [`0x7a2259D0eAe3BF277b673dd08972762fD944e275`](https://shannon-explorer.somnia.network/address/0x7a2259D0eAe3BF277b673dd08972762fD944e275) |
+| SentinelOracle | [`0xd6Cfd84691DeE2C80B47c00c348cBa22636160cF`](https://shannon-explorer.somnia.network/address/0xd6Cfd84691DeE2C80B47c00c348cBa22636160cF) |
 
-Demo scaffolding (operator-controlled, for reproducing the trigger): CAPITAL/sUSD [`0xd6A0AA80…db76c`](https://shannon-explorer.somnia.network/address/0xd6A0AA8097C5cC0E3D6E3B4ae706DE8B375db76c) · INSURED/USDC [`0xdf97Ec1a…8a70`](https://shannon-explorer.somnia.network/address/0xdf97Ec1aA53C44E466ad30B07e1C2075f6738a70) · MockPriceOracle [`0x42658925…c53A`](https://shannon-explorer.somnia.network/address/0x42658925e8BCdF84C19A14d87e6FA48B6793c53A) · Reactivity subscription `3472568`.
+Demo scaffolding (operator-controlled, for reproducing the trigger): CAPITAL/sUSD [`0xBf51Db11…5D1e`](https://shannon-explorer.somnia.network/address/0xBf51Db11C17B3288c3b347EcC13aa20605245D1e) · INSURED/USDC [`0x71918476…A88a`](https://shannon-explorer.somnia.network/address/0x71918476F55ebD185DC3E8ea8514c7F2C514A88a) · MockPriceOracle [`0x7e09120C…A593`](https://shannon-explorer.somnia.network/address/0x7e09120C5A06B2aC87CB324F864f11b520d3A593) · Reactivity subscription `3535096`.
 
 ## Demo
 
