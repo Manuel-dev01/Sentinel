@@ -16,8 +16,13 @@ The whole environment is two scripts. From the repo root, with `.env` filled
 ```bash
 # 0. Deploy frontend/ to Vercel first so the agents have a public URL to read:
 #    cd frontend && vercel --prod
-#    → set MOCK_ISSUER_URL = https://<proj>.vercel.app/api/peg-status
-#    → set ISSUER_PAGE_URL = https://<proj>.vercel.app/issuer/incident
+#    → set MOCK_ISSUER_URL = https://<proj>.vercel.app/api/peg-status   (JSON — the confirm agent reads this)
+#    → set ISSUER_PAGE_URL = https://<proj>.vercel.app/issuer/incident  (HTML — the Parse-Website agent reads this)
+#
+#    ⚠ These MUST be different URLs. The JSON-API confirm agent reads the JSON feed; the
+#    Parse-Website investigate agent is a web scraper and needs the rendered HTML page. If
+#    ISSUER_PAGE_URL is left unset, deploy.ts falls back to the JSON URL and the investigate
+#    stage fails (validators return Failed/empty) — the event parks in Failed. (M6 root cause.)
 
 # 1. Deploy + wire + seed everything (deploys 8 contracts, wires roles, registers USDC,
 #    sets the confirm feed, funds the Oracle with 34 STT, arms the subscription, seeds the
@@ -47,9 +52,9 @@ agent-request budget at `arm()` time. `deploy.ts` parks 34 STT in it by default
 - [ ] Contracts deployed to Somnia testnet; addresses recorded in `README.md`.
 - [ ] `SentinelOracle` funded with native token for several agent-request deposits (budget above scheduled cost — under-funding makes validators ignore requests).
 - [ ] Reactivity subscription created, pointing the mock oracle's price-update event at `SentinelOracle._onEvent`.
-- [ ] One stablecoin registered; demo issuer URLs point at the mock page.
+- [ ] One stablecoin registered; **confirm feed points at the JSON URL and `homepageUrl` points at the HTML `/issuer/incident` page** (not the same URL — see §1a).
 - [ ] LP pool seeded with capital; at least one active policy bought and past its min-age.
-- [ ] Mock issuer page deployed and reachable (content reads as a clear exploit disclosure).
+- [ ] Mock issuer HTML page deployed and reachable at `/issuer/incident` (content reads as a clear exploit disclosure); a quick `curl` confirms HTTP 200 + `text/html`.
 - [ ] Frontend running; peg dashboard and `/audit/[requestId]` both load.
 - [ ] A dry run completed end-to-end within the last hour.
 - [ ] Screen recording set up; on-screen timer ready.

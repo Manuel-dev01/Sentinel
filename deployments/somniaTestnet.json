@@ -1,0 +1,21 @@
+{
+  "network": "somniaTestnet",
+  "chainId": 50312,
+  "deployedAt": "2026-05-30T23:45:11.290Z",
+  "operator": "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe",
+  "agentPlatform": "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776",
+  "issuerJsonUrl": "https://sentinel-issuer.vercel.app/api/peg-status",
+  "issuerPageUrl": "https://sentinel-issuer.vercel.app/issuer/incident",
+  "subscriptionId": "3472568",
+  "demoTokenId": "1",
+  "contracts": {
+    "capital": "0xd6A0AA8097C5cC0E3D6E3B4ae706DE8B375db76c",
+    "insured": "0xdf97Ec1aA53C44E466ad30B07e1C2075f6738a70",
+    "priceOracle": "0x42658925e8BCdF84C19A14d87e6FA48B6793c53A",
+    "registry": "0x66aec29df55d98897a212405a3Ba96B2EE33F46f",
+    "pool": "0x3BcD05d8321907E30FF8E3096072B35836FF760D",
+    "policy": "0x881440753d341626E84991769D38a1649b62275f",
+    "treasury": "0x779A2e419A37854CEb469F9c10d2Eb46A5eb3645",
+    "oracle": "0xD38B6F33EcaeF6806c33d8c005cF46F2A8Eaa0aD"
+  }
+}

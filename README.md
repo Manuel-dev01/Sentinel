@@ -88,7 +88,7 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 |---|---|
 | **0 · Verify & scaffold** | ✅ Done — Foundry + Hardhat + Next.js on Somnia testnet; live docs verified |
 | **0 · Riskiest-path spike** | ✅ **Passed (2026-05-29)** — both agents reached validator consensus on testnet ([`docs/spike-results.md`](docs/spike-results.md)) |
-| **2 · Core engine** | 🚧 Near complete — all five contracts built & tested; the Oracle ties detection→agents→payout end-to-end. Remaining: deploy + wire + live testnet `simulate-depeg` (M6) |
+| **2 · Core engine** | ✅ **Done (2026-05-31)** — all five contracts built, tested, deployed + wired on testnet; `simulate-depeg` ran the full detect→classify→payout chain autonomously in ~27s |
 | **3 · Frontend** | ⬜ — peg dashboard, policies, LP, audit trail |
 | **4 · Harden & ship** | ⬜ — fuzz/invariants, video, submission |
 
@@ -103,9 +103,10 @@ You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) f
 | `SentinelPolicy` | ERC-721 coverage: quote/buy, premium routing, min-age anti-farming, claim lifecycle | ✅ unit + fuzz |
 | `SentinelTreasury` | Payout-matrix execution: immediate (exploit) vs. vested/delayed; per-policy settle; reentrancy-guarded | ✅ unit + reentrancy |
 | `SentinelOracle` | Reactive detect→confirm→investigate→classify→route orchestrator + 3-agent chain | ✅ integration (mock platform) |
-| Deploy + wire + simulate | `script/deploy.ts` (deploy 8 contracts, wire roles, register, fund+arm, seed, buy) + `script/simulate-depeg.ts` (trigger → pipeline → settle) | ✅ scripts ready — run `pnpm deploy:testnet` then `pnpm simulate:depeg` |
+| Deploy + wire + simulate | `script/deploy.ts` (deploy 8 contracts, wire roles, register, fund+arm, seed, buy) + `script/simulate-depeg.ts` (trigger → pipeline → settle) | ✅ **ran live on testnet** — full 3-agent chain settled an exploit payout in ~27s (addresses below) |
+| Full 3-agent chain (live) | Reactivity → JSON-API confirm → LLM Parse-Website investigate → LLM-Inference classify → payout, end-to-end on testnet | ✅ proven 2026-05-31 (sequential blocks, all stages reached validator consensus) |
 
-**117 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences, a reentrancy-attack regression test on the payout path, and a full Oracle state-machine suite (24 tests) driven by a mock 3-validator agent platform (every `ResponseStatus` branch, callback idempotency, detection gating, and an agent-payload selector lock).
+**119 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences, a reentrancy-attack regression test on the payout path, and a full Oracle state-machine suite (26 tests) driven by a mock 3-validator agent platform (every `ResponseStatus` branch, callback idempotency, detection gating, an agent-payload selector lock, and the free-the-live-slot-on-failure regression).
 
 **Both Somnia primitives are proven on-chain** — this is the project's core de-risking:
 
@@ -119,15 +120,17 @@ Consensus-validated AI classification + keeperless on-chain detection are the tw
 
 ## Deployed addresses (Somnia testnet)
 
-> Core protocol contracts: _to be filled after Phase 2 deployment._ Spike contracts are in the table above.
+> Deployed and verified end-to-end on 2026-05-31 (chain id 50312). The full detect → confirm → investigate → classify → payout flow ran autonomously in **~27 s** on this deployment (`SMART_CONTRACT_EXPLOIT`, 100% immediate payout).
 
 | Contract | Address |
 |---|---|
-| SentinelRegistry | `0x…` |
-| SentinelPool | `0x…` |
-| SentinelPolicy | `0x…` |
-| SentinelTreasury | `0x…` |
-| SentinelOracle | `0x…` |
+| SentinelRegistry | [`0x66aec29df55d98897a212405a3Ba96B2EE33F46f`](https://shannon-explorer.somnia.network/address/0x66aec29df55d98897a212405a3Ba96B2EE33F46f) |
+| SentinelPool | [`0x3BcD05d8321907E30FF8E3096072B35836FF760D`](https://shannon-explorer.somnia.network/address/0x3BcD05d8321907E30FF8E3096072B35836FF760D) |
+| SentinelPolicy | [`0x881440753d341626E84991769D38a1649b62275f`](https://shannon-explorer.somnia.network/address/0x881440753d341626E84991769D38a1649b62275f) |
+| SentinelTreasury | [`0x779A2e419A37854CEb469F9c10d2Eb46A5eb3645`](https://shannon-explorer.somnia.network/address/0x779A2e419A37854CEb469F9c10d2Eb46A5eb3645) |
+| SentinelOracle | [`0xD38B6F33EcaeF6806c33d8c005cF46F2A8Eaa0aD`](https://shannon-explorer.somnia.network/address/0xD38B6F33EcaeF6806c33d8c005cF46F2A8Eaa0aD) |
+
+Demo scaffolding (operator-controlled, for reproducing the trigger): CAPITAL/sUSD [`0xd6A0AA80…db76c`](https://shannon-explorer.somnia.network/address/0xd6A0AA8097C5cC0E3D6E3B4ae706DE8B375db76c) · INSURED/USDC [`0xdf97Ec1a…8a70`](https://shannon-explorer.somnia.network/address/0xdf97Ec1aA53C44E466ad30B07e1C2075f6738a70) · MockPriceOracle [`0x42658925…c53A`](https://shannon-explorer.somnia.network/address/0x42658925e8BCdF84C19A14d87e6FA48B6793c53A) · Reactivity subscription `3472568`.
 
 ## Demo
 
