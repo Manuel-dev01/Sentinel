@@ -14,24 +14,40 @@ The whole environment is two scripts. From the repo root, with `.env` filled
 (`DEPLOYER_PRIVATE_KEY`, `AGENT_PLATFORM_ADDRESS`, `MOCK_ISSUER_URL`, and ideally `ISSUER_PAGE_URL`):
 
 ```bash
-# 0. Deploy frontend/ to Vercel first so the agents have a public URL to read:
+# 0. Deploy frontend/ to Vercel FIRST so the agents have public URLs to read. The investigate
+#    stages run a TWO-SOURCE investigation, so there are THREE distinct issuer URLs:
 #    cd frontend && vercel --prod
-#    → set MOCK_ISSUER_URL = https://<proj>.vercel.app/api/peg-status   (JSON — the confirm agent reads this)
-#    → set ISSUER_PAGE_URL = https://<proj>.vercel.app/issuer/incident  (HTML — the Parse-Website agent reads this)
+#    → MOCK_ISSUER_URL    = https://<proj>.vercel.app/api/peg-status   (JSON — confirm agent)
+#    → ISSUER_PAGE_URL    = https://<proj>.vercel.app/issuer/incident  (HTML — investigate #1, homepage)
+#    → ISSUER_SOCIAL_URL  = https://<proj>.vercel.app/issuer/social    (HTML — investigate #2, status feed)
+#      (ISSUER_SOCIAL_URL is optional; if unset, deploy.ts derives /issuer/social from ISSUER_PAGE_URL.)
 #
-#    ⚠ These MUST be different URLs. The JSON-API confirm agent reads the JSON feed; the
-#    Parse-Website investigate agent is a web scraper and needs the rendered HTML page. If
-#    ISSUER_PAGE_URL is left unset, deploy.ts falls back to the JSON URL and the investigate
-#    stage fails (validators return Failed/empty) — the event parks in Failed. (M6 root cause.)
+#    ⚠ The confirm URL must be JSON; both investigate URLs must be rendered HTML pages (Parse-Website
+#    is a web scraper — a JSON target returns Failed/empty). All three must be DIFFERENT URLs.
+#    ⚠ PRE-WARM the two HTML pages in a browser right before recording: a cold Vercel page can make a
+#    validator slow enough to miss the timeout. The investigate stages tolerate a 2-of-3 majority
+#    (tiered consensus), but pre-warming makes a clean 3-responder run more likely.
 
-# 1. Deploy + wire + seed everything (deploys 8 contracts, wires roles, registers USDC,
-#    sets the confirm feed, funds the Oracle with 34 STT, arms the subscription, seeds the
-#    LP pool, and buys one demo policy). Writes deployments/somniaTestnet.json.
+# 1. Deploy + wire + seed everything (deploys 9 contracts incl. TWO insured stables USDC+USDT,
+#    wires roles, registers both with confirm feeds + distinct issuer URLs, funds the Oracle with
+#    34 STT, arms the subscription, seeds the LP pool, buys a demo policy per stable). Writes
+#    deployments/somniaTestnet.json (incl. constructor args for verification).
 pnpm deploy:testnet
 
-# 2. Trigger the depeg and watch the autonomous pipeline settle.
+# 2. Source-verify all contracts on Shannon Explorer (forge → Blockscout). Re-run if any fail with
+#    "not a smart contract" — that's just the explorer's indexer lagging a few minutes behind the
+#    deploy; wait until /api/v2/addresses/<addr> shows "is_contract": true, then re-run. Without
+#    this, the explorer renders a real contract as an opaque/EOA-looking page.
+pnpm verify:testnet
+
+# 3. Resync the frontend's generated address/ABI layer to the new deploy.
+node script/gen-frontend.mjs
+
+# 4. Trigger the depeg and watch the autonomous pipeline settle (USDC, the primary stable).
 pnpm simulate:depeg
 ```
+
+**Pacing note:** the two-source pipeline runs four agent rounds (confirm → investigate → investigate-2 → classify) across sequential blocks and typically takes a few minutes end-to-end — the Parse-Website scrape stages dominate. The *payout* is instant once classified; the investigation is the deliberate, foundational part of the claim. Edit/trim the recording around the agent waits.
 
 `deploy.ts` prints the `NEXT_PUBLIC_*` address block to paste into `frontend/.env.local`.
 `simulate-depeg.ts` reads `deployments/somniaTestnet.json`, pushes USDC to `DEPEG_PRICE`
@@ -52,10 +68,11 @@ agent-request budget at `arm()` time. `deploy.ts` parks 34 STT in it by default
 - [ ] Contracts deployed to Somnia testnet; addresses recorded in `README.md`.
 - [ ] `SentinelOracle` funded with native token for several agent-request deposits (budget above scheduled cost — under-funding makes validators ignore requests).
 - [ ] Reactivity subscription created, pointing the mock oracle's price-update event at `SentinelOracle._onEvent`.
-- [ ] One stablecoin registered; **confirm feed points at the JSON URL and `homepageUrl` points at the HTML `/issuer/incident` page** (not the same URL — see §1a).
+- [ ] Stablecoin(s) registered; **confirm feed points at the JSON URL, `homepageUrl` at `/issuer/incident`, `socialUrl` at `/issuer/social`** (three different URLs — see §1a).
+- [ ] All contracts **source-verified** on Shannon Explorer (`pnpm verify:testnet`, summary shows 0 failed) — a verified address shows Code/Read/Write tabs; an unverified one looks like an opaque/EOA page.
 - [ ] LP pool seeded with capital; at least one active policy bought and past its min-age.
-- [ ] Mock issuer HTML page deployed and reachable at `/issuer/incident` (content reads as a clear exploit disclosure); a quick `curl` confirms HTTP 200 + `text/html`.
-- [ ] Frontend running; peg dashboard and `/audit/[requestId]` both load.
+- [ ] Both issuer HTML pages deployed and reachable at `/issuer/incident` and `/issuer/social` (clear exploit disclosure); `curl` confirms HTTP 200 + `text/html`, and **pre-warm both in a browser** right before recording.
+- [ ] Frontend running; peg dashboard and `/audit/[eventId]` both load.
 - [ ] A dry run completed end-to-end within the last hour.
 - [ ] Screen recording set up; on-screen timer ready.
 
@@ -74,15 +91,15 @@ Show the peg dashboard: stablecoin at peg, pool funded, a policy active.
 
 **0:20–0:50 — The hero moment.**
 Press **Simulate Depeg**. Start the on-screen timer. Narrate as the dashboard updates live:
-> "Reactivity fires — no keeper. A JSON-API agent confirms the depeg across a price basket, so one bad oracle can't trigger a payout. A second agent reads the issuer's page. A third classifies the cause — and three independent validators have to agree."
+> "Reactivity fires — no keeper. A JSON-API agent confirms the depeg across a price basket, so one bad oracle can't trigger a payout. Then a two-source investigation: an agent reads the issuer's formal disclosure and a second reads its status feed. A third agent classifies the cause — and the verdict that signs the payout requires all three validators to agree."
 
-Show the classification land as `SMART_CONTRACT_EXPLOIT` and the payout transaction confirm. **Stop the timer.** Call out the elapsed time.
+Show the classification land as `SMART_CONTRACT_EXPLOIT` and the payout transaction confirm. **Stop the timer.** Call out the elapsed time. (The investigation runs a few minutes — trim the agent waits in the edit; the payout itself is instant once the verdict signs.)
 
 **0:50–2:10 — The proof (audit trail).**
-Open `/audit/[requestId]`.
-> "This is the part no other chain can do. Here's every agent call. Here's each validator's individual response. They agreed — and that agreement is what released the funds. No human touched this, and anyone can verify it."
+Open `/audit/[eventId]`.
+> "This is the part no other chain can do. Here's every agent call — confirm, two investigation sources, and the verdict. Here's each validator's individual response. And notice the consensus is *tiered*: the price confirm and the final verdict — the stages that actually release funds — carry a 3-of-3 stamp; the web-evidence stages carry a 2-of-3 majority. That's deliberate — the verdict signs only on unanimity, while the corroborating evidence needs a majority that still agrees byte-for-byte. No human touched this, and anyone can verify it on-chain."
 
-Walk the three receipts: basket prices, parsed evidence, the per-validator votes on the cause.
+Walk the receipts: basket prices (3/3), the two parsed disclosures (2/3 each), the per-validator votes on the cause (3/3).
 
 **2:10–3:00 — The economics + interop.**
 > "LPs earn the premiums and take the tail risk. The protocol never sells more coverage than the pool can back. And the classification changes the payout — an exploit pays immediately; a bank run vests over 24 hours so you can't farm it."
@@ -99,8 +116,8 @@ Show repo + addresses.
 Say these words at least once so judges can check the boxes:
 - **Functionality** — "deployed, runs end-to-end, no manual steps."
 - **Agent-First Design** — "three agents make the decision, not just automate a transfer."
-- **Innovation** — "the investigation itself is consensus-validated — that's new."
-- **Autonomous Performance** — "detection to settlement with no human in the loop, and it handles failed or split agent responses safely."
+- **Innovation** — "the investigation itself is consensus-validated, across two independent web sources — that's new."
+- **Autonomous Performance** — "detection to settlement with no human in the loop, and it handles failed or split agent responses safely — with *tiered* consensus: 3-of-3 unanimity to sign the payout, 2-of-3 majority on the evidence stages, matched to the agents' real behaviour on-chain."
 
 ## 6. Recording tips
 

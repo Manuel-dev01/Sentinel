@@ -8,7 +8,8 @@ This document records Sentinel's threat model, trust assumptions, and the mitiga
 
 ## 1. Trust assumptions
 
-- **Somnia validators are honest-majority.** Agent results are trusted only when a validator subcommittee reaches consensus (Majority or Threshold mode). Sentinel inherits the chain's trust model; it does not add a trusted off-chain party.
+- **Somnia validators are honest-majority.** Agent results are trusted only when a validator subcommittee reaches consensus, recomputed on-chain by the Oracle (never trusting a single response). Sentinel inherits the chain's trust model; it does not add a trusted off-chain party.
+- **Consensus is tiered to the safety role of each stage.** The two stages that *sign the payout* — the JSON-API price **Confirm** and the LLM-Inference **Classify** verdict — require strict **3-of-3 unanimity** (both deterministic, so this is reliably met). The free-form **Parse-Website** investigate stages, which only gather corroborating evidence, require a **2-of-3 majority** (the scraper agent reliably musters only a quorum on testnet). Security rationale: relaxing the *evidence* threshold never enables an unjustified payout — the verdict that releases funds still demands unanimity — while requiring unanimity on the evidence stages would only add a liveness/availability tax (a stuck event), not safety.
 - **The price feed(s) are imperfect.** No single price source is trusted. Detection arms on a feed; payout requires independent corroboration via the JSON-API basket.
 - **The operator is trusted for configuration only.** The operator registers stablecoins and sets parameters but cannot direct a payout to a specific party or bypass the state machine. Operator powers are behind an `OPERATOR_ROLE` and limited to config + emergency pause.
 - **LLM determinism holds well enough for consensus.** The system assumes constrained prompts yield stable outputs across validators; this is validated empirically (see Limitations).

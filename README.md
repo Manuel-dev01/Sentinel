@@ -58,6 +58,15 @@ flowchart LR
 | **Innovation & Technical Creativity** | First parametric insurer whose **claim investigation is consensus-validated**; chains Reactivity → Agents → payout; the audit receipt is a first-class on-chain artifact. |
 | **Autonomous Performance** | No human in the loop between detection and settlement; the system maintains a strict state machine and handles every agent response status (success, failure, no-consensus, timeout) safely. |
 
+## Design highlights
+
+A few decisions worth calling out — each is a deliberate engineering response to something we learned building on the live platform:
+
+- **Tiered consensus, matched to safety role.** Consensus is *not* uniform across the pipeline. The two stages that **sign the payout** — the price **Confirm** (JSON-API) and the **Classify** verdict (LLM-Inference, constrained to one token via `allowedValues`) — require strict **3-of-3 unanimity, byte-identical**. The free-form **Parse-Website** investigate stages, which only *gather corroborating evidence*, require a **2-of-3 majority**. Why: on-chain receipts showed the Parse-Website subcommittee reliably musters only 2 of 3 validators on testnet (the responders agree perfectly; the third is simply absent), so demanding unanimity there is a pure liveness tax with no safety gain — while the verdict that releases funds still demands full unanimity. *The payout signs only on 3-of-3; the evidence needs a byte-identical majority.* (`SentinelOracle._requiredFor` / `_consensusResult`.)
+- **Two-source investigation.** The cause isn't read from one page. The Oracle scrapes the issuer's formal disclosure *and* a separate status feed (two distinct Parse-Website calls), then classifies on the merged evidence — so a single spoofed or stale page can't drive a payout.
+- **Receipts are on-chain, not reconstructed.** Every validator vote is stored by the Oracle (`getReceipts(eventId)`) and read in one call — no `eth_getLogs` window limit, no off-chain indexer. The `/audit` screen is a pure contract read, refresh-proof and verifiable.
+- **Funding-safe reactive callback.** Detection and every agent dispatch turn all failure modes into parked, retriable `Failed` states — never a revert inside the Reactivity callback (which would brick the subscription).
+
 ## Tech stack
 
 - **Contracts:** Solidity · Foundry (tests/fuzz/invariants) · Hardhat (deploy/TS interop) · OpenZeppelin
@@ -125,21 +134,21 @@ Consensus-validated AI classification + keeperless on-chain detection are the tw
 
 ## Deployed addresses (Somnia testnet)
 
-> Source-verified on Shannon Explorer 2026-05-31 (chain id 50312). Runs **tiered validator consensus** (`createAdvancedRequest`, `ConsensusType.Threshold`): the payout-signing stages — price **Confirm** and the **Classify** verdict — require strict **3-of-3 unanimity**, while the two Parse-Website **investigate** stages (free-form web evidence) require a **2-of-3 majority** (that agent only reliably musters a quorum on testnet). Plus a **sequential two-source investigation** (issuer disclosure + status feed). Two stablecoins (USDC + USDT) are independently insurable. Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by `/audit` — no off-chain indexer. *(Addresses below predate the tiered-consensus change; redeploy + `pnpm verify:testnet` refreshes them.)*
+> Deployed and **source-verified** on Shannon Explorer 2026-05-31 (chain id 50312) — every contract below carries the green “Verified” tab (Code / Read / Write). Runs **tiered validator consensus** (`createAdvancedRequest`, `ConsensusType.Threshold`): the payout-signing stages — price **Confirm** and the **Classify** verdict — require strict **3-of-3 unanimity**, while the two Parse-Website **investigate** stages (free-form web evidence) require a **2-of-3 majority** (that agent only reliably musters a quorum on testnet — see “Design highlights”). Plus a **sequential two-source investigation** (issuer disclosure + status feed) and **two independently insurable stablecoins** (USDC + USDT). Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by `/audit` — no off-chain indexer.
 >
-> All contracts below carry the green “Verified” tab on the explorer. Re-verify any deploy with `pnpm verify:testnet` (forge → Blockscout). Note: Shannon Explorer’s indexer flags a freshly-deployed address as a contract a few minutes after deploy; verification (and the Code/Read/Write tabs) only become available once it does.
+> Re-verify any deploy with `pnpm verify:testnet` (forge → Blockscout). Note: Shannon Explorer’s indexer flags a freshly-deployed address as a contract a few minutes after deploy; verification (and the Code/Read/Write tabs) only become available once it does.
 
 | Contract | Address |
 |---|---|
-| SentinelRegistry | [`0xF85882800fBa17daa2AFf8e03908FE0dea24C232`](https://shannon-explorer.somnia.network/address/0xF85882800fBa17daa2AFf8e03908FE0dea24C232) |
-| SentinelPool | [`0x87853d518172FD58C01476a9eC8425B54B009aaa`](https://shannon-explorer.somnia.network/address/0x87853d518172FD58C01476a9eC8425B54B009aaa) |
-| SentinelPolicy | [`0xA4C5144b9815aa1308dBb13fa86510Baf0e00c54`](https://shannon-explorer.somnia.network/address/0xA4C5144b9815aa1308dBb13fa86510Baf0e00c54) |
-| SentinelTreasury | [`0x37099DAEdf3d13e079B5bbD83cdF2DcF1dd70cf5`](https://shannon-explorer.somnia.network/address/0x37099DAEdf3d13e079B5bbD83cdF2DcF1dd70cf5) |
-| SentinelOracle | [`0xF308D880551D3F3526Cb0e6e1B36C828213aD1ab`](https://shannon-explorer.somnia.network/address/0xF308D880551D3F3526Cb0e6e1B36C828213aD1ab) |
+| SentinelRegistry | [`0x4190c7Aee1e3e7FD482C3a019441e0Bb3b601a89`](https://shannon-explorer.somnia.network/address/0x4190c7Aee1e3e7FD482C3a019441e0Bb3b601a89) |
+| SentinelPool | [`0x847Bab38C01fA4397E0F1b4F166b9497A7602296`](https://shannon-explorer.somnia.network/address/0x847Bab38C01fA4397E0F1b4F166b9497A7602296) |
+| SentinelPolicy | [`0x142c36b77868d8b735501BB2b1cDA8f27837643e`](https://shannon-explorer.somnia.network/address/0x142c36b77868d8b735501BB2b1cDA8f27837643e) |
+| SentinelTreasury | [`0x056AA4097aED8887C013Ce953b936c03aEA32FeF`](https://shannon-explorer.somnia.network/address/0x056AA4097aED8887C013Ce953b936c03aEA32FeF) |
+| SentinelOracle | [`0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c`](https://shannon-explorer.somnia.network/address/0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c) |
 
-Insured stables: **USDC** [`0xF09b39b6…238F`](https://shannon-explorer.somnia.network/address/0xF09b39b62548879C314fA52fb1B7BF943d27238F) (policy #1) · **USDT** [`0x004D79a2…2f87`](https://shannon-explorer.somnia.network/address/0x004D79a2d6e86C0A8A5ec5b101Eb48595B602f87) (policy #2).
+Insured stables: **USDC** [`0x0195df87…8EEF`](https://shannon-explorer.somnia.network/address/0x0195df878eAF2bd487E08550fAfA4479a2bb8EEF) (policy #1) · **USDT** [`0x573e0382…44a7`](https://shannon-explorer.somnia.network/address/0x573e03824092276ba29FCb2F98B07910ed9944a7) (policy #2).
 
-Demo scaffolding (operator-controlled, for reproducing the trigger): CAPITAL/sUSD [`0x3e0075eF…16Ca8`](https://shannon-explorer.somnia.network/address/0x3e0075eFEb0a59faCAA4761332a4486984216Ca8) · MockPriceOracle [`0xd915c7a3…377f`](https://shannon-explorer.somnia.network/address/0xd915c7a3253bD31253eCdfC84A1e1b3f0FB5377f) · Reactivity subscription `3647477`.
+Demo scaffolding (operator-controlled, for reproducing the trigger): CAPITAL/sUSD [`0x88f973BA…Cba9`](https://shannon-explorer.somnia.network/address/0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9) · MockPriceOracle [`0xE31b784B…FE7d`](https://shannon-explorer.somnia.network/address/0xE31b784B34f7F986AA2965c33609e15533E0FE7d) · Reactivity subscription `3711687`.
 
 ## Demo
 
