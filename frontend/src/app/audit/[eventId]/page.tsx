@@ -241,7 +241,8 @@ export default function AuditPage() {
                               {decodeResult(v.stage, v.result)}
                             </div>
                             <div className="muted" style={{ fontFamily: "var(--mono)", fontSize: 10.5, letterSpacing: "0.08em" }}>
-                              cost {fmtWad(v.executionCost, 4)} STT · receipt {v.receiptId.toString()}
+                              cost {fmtWad(v.executionCost, 4)} STT
+                              {v.receiptId !== 0n ? ` · receipt ${v.receiptId.toString()}` : ""}
                             </div>
                           </div>
                         );
