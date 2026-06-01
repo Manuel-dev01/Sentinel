@@ -75,6 +75,11 @@ export default function Dashboard() {
   const eventState = (evt as { state: number } | undefined)?.state;
   const eventStage = (evt as { stage: number } | undefined)?.stage;
 
+  // The stepper tracks an active event. When the peg is back within tolerance and nothing is in
+  // flight we're MONITORING — reset the stepper to the start rather than leaving a stale "Settled".
+  const monitoring = !inFlight && !breached;
+  const displayState = monitoring ? 0 : (eventState ?? 0);
+
   // Operator controls — push the insured below peg / reset it.
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: txMining } = useWaitForTransactionReceipt({ hash: txHash, query: { enabled: !!txHash } });
@@ -168,21 +173,19 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Live pipeline stepper */}
-        {auditEventId && eventState !== undefined && (
-          <div className="section-pad" style={{ borderTop: "1px solid var(--line-d)" }}>
-            <PipelineStepper state={eventState} stage={eventStage} />
-          </div>
-        )}
+        {/* Live pipeline stepper — always shown; resets to MONITORING when the peg is restored. */}
+        <div className="section-pad" style={{ borderTop: "1px solid var(--line-d)" }}>
+          <PipelineStepper state={displayState} stage={monitoring ? undefined : eventStage} />
+        </div>
 
         {/* Pipeline status strip */}
         <div className="pm-foot">
           <span>
             {inFlight
               ? `EVENT #${liveEventId} · IN FLIGHT`
-              : auditEventId
+              : !monitoring && auditEventId
                 ? `LAST EVENT #${auditEventId} · ${eventState !== undefined ? EVENT_STATE[eventState].toUpperCase() : "CLOSED"}`
-                : "NO ACTIVE EVENT"}
+                : "MONITORING · NO BREACH"}
           </span>
           <span>FIG. 01 · REACTIVITY HANDLER</span>
         </div>

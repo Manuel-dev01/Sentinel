@@ -53,18 +53,26 @@ stateDiagram-v2
     MONITORING --> DETECTED: Reactivity event<br/>(deviation ≥ threshold, sustained)
     DETECTED --> CONFIRMING: dispatch JSON-API basket check
     CONFIRMING --> DISMISSED: basket disagrees
-    CONFIRMING --> INVESTIGATING: depeg corroborated<br/>dispatch LLM Parse Website
-    INVESTIGATING --> CLASSIFIED: dispatch LLM Inference<br/>subcommittee consensus on cause
+    CONFIRMING --> INVESTIGATING: corroborated (3/3)<br/>Parse-Website · source 1 (homepage)
+    INVESTIGATING --> INVESTIGATING: Parse-Website · source 2 (status feed)
+    INVESTIGATING --> CLASSIFYING: evidence merged<br/>dispatch LLM Inference
+    CLASSIFYING --> CLASSIFIED: verdict (3/3) on cause enum
     CLASSIFIED --> SETTLING: apply payout matrix
     SETTLING --> SETTLED: immediate + vested payouts complete
+    CONFIRMING --> FAILED: stage failed / no consensus / timeout
+    INVESTIGATING --> FAILED: stage failed / no consensus / timeout
+    CLASSIFYING --> FAILED: stage failed / no consensus / timeout
+    FAILED --> INVESTIGATING: operator retry(eventId)
     DISMISSED --> [*]
     SETTLED --> [*]
 ```
 
+The two `INVESTIGATING` sub-steps are the **two-source investigation**: the event stays in `INVESTIGATING` across both Parse-Website calls (the issuer's formal disclosure, then its status feed) and only advances to `CLASSIFYING` once both disclosures are gathered and merged. Single-source stables (no distinct `socialUrl`) skip straight from the first source to `CLASSIFYING`.
+
 Key properties:
-- **Idempotent callbacks.** A late or duplicate agent response must not re-advance state or double-pay. Each `requestId` maps to exactly one (eventId, stage); responses for already-advanced stages are ignored.
-- **Fail-safe defaults.** A `ResponseStatus` of failure/no-consensus/timeout does not pay out; it parks the event and (optionally) retries or dismisses with a logged reason. Stranding in `INVESTIGATING` is preferable to an unjustified payout.
-- **No human step** exists between `DETECTED` and `SETTLED`.
+- **Idempotent callbacks.** A late or duplicate agent response must not re-advance state or double-pay. Each `requestId` maps to exactly one (eventId, stage); the context entry is deleted on first handling, so replays/late/duplicate callbacks no-op.
+- **Fail-safe defaults.** A `ResponseStatus` of failure/no-consensus/timeout does not pay out; it parks the event as `FAILED` (which frees the stable's live slot) for an operator `retry(eventId)` from exactly where it stalled. A stuck event is always preferable to an unjustified payout.
+- **No human step** exists between `DETECTED` and `SETTLED` on the happy path.
 
 ## 3. Agent orchestration
 
@@ -80,20 +88,24 @@ sequenceDiagram
 
     RX->>ORC: _onEvent(emitter, topics, data)
     ORC->>ORC: open DepegEvent (DETECTED)
-    ORC->>PLAT: createRequest(JSON_API, basket payload) {deposit}
-    PLAT->>SUB: re-run across N validators
+    ORC->>PLAT: createAdvancedRequest(JSON_API, basket, threshold=3)
+    PLAT->>SUB: re-run across the subcommittee
     SUB-->>ORC: handleResponse(reqId, responses, status)
-    alt depeg corroborated
-        ORC->>PLAT: createRequest(PARSE_WEBSITE, issuer URLs)
-        SUB-->>ORC: handleResponse(...)
-        ORC->>PLAT: createRequest(LLM_INFERENCE, classify)
-        SUB-->>ORC: handleResponse(...) consensus on enum
-        ORC->>TRE: routePayouts(eventId, classification)
-        TRE->>TRE: executeImmediate / scheduleVested
+    alt depeg corroborated (3/3)
+        ORC->>PLAT: createAdvancedRequest(PARSE_WEBSITE, homepage, threshold=2)
+        SUB-->>ORC: handleResponse(...)  evidence #1
+        ORC->>PLAT: createAdvancedRequest(PARSE_WEBSITE, status feed, threshold=2)
+        SUB-->>ORC: handleResponse(...)  evidence #2
+        ORC->>PLAT: createAdvancedRequest(LLM_INFERENCE, classify, threshold=3)
+        SUB-->>ORC: handleResponse(...)  verdict (3/3) on enum
+        ORC->>TRE: recordVerdict(eventId, cause, deviation)
+        TRE->>TRE: per-policy settle: executeImmediate / scheduleVested
     else single bad oracle
         ORC->>ORC: DISMISSED
     end
 ```
+
+The per-stage `threshold` is the **tiered consensus** rule (see §7): `3` for the payout-gating Confirm + Classify, `2` for the two Parse-Website investigate stages. The Oracle re-checks agreement on-chain in `_consensusResult(responses, required)` — it never trusts the platform's report or `responses[0]`.
 
 **Determinism requirement — validated on testnet (2026-05-29).** For the LLM-Inference call to reach subcommittee consensus, every validator must produce the same output. The spike proved this works: calling `inferString(prompt, system, chainOfThought, allowedValues)` with `allowedValues` set to the fixed Classification token set and `chainOfThought = false` constrains the model to one token, and the subcommittee agreed (both validators returned `SMART_CONTRACT_EXPLOIT`). The classifier therefore passes the enum as `allowedValues` rather than relying on prose instructions. Fallback if a future model regresses: extract structured evidence and classify on-chain.
 

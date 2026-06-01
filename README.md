@@ -1,142 +1,108 @@
 # Sentinel
 
-**Insurance that pays out faster than the rumor cycle — and proves *why* it paid.**
+**Parametric stablecoin-depeg insurance that pays out faster than the rumor cycle — and proves, on-chain, *why* it paid.**
 
-Sentinel is agent-native parametric insurance for stablecoin depegs, built on [Somnia](https://somnia.network), the Agentic L1. When an insured stablecoin loses its peg, Sentinel autonomously confirms the event, **investigates the cause using on-chain AI agents**, classifies it, and pays valid claims **within the same block** — with no human committee, no governance vote, and no trusted centralized oracle.
+Sentinel is agent-native insurance built on [Somnia](https://somnia.network), the Agentic L1. When an insured stablecoin loses its peg, Sentinel autonomously confirms the event, **investigates the cause with on-chain AI agents**, classifies it, and settles valid claims **in the same flow** — no human committee, no governance vote, no trusted centralized oracle.
 
-The investigation itself is consensus-validated: multiple independent validators must agree on the AI verdict before a single token moves. That verifiability is the entire reason Sentinel can only exist on Somnia.
+The investigation itself is **consensus-validated**: independent validators must agree on the AI verdict before a single token moves, and every vote is recorded on-chain for anyone to audit. That verifiability is the entire reason Sentinel can only exist on Somnia.
 
-> Built for the **Somnia Agentathon** (Encode Club, 2026).
+> Built solo for the **Somnia Agentathon** (Encode Club, 2026).
 
 [![CI](https://github.com/Manuel-dev01/Sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/Manuel-dev01/Sentinel/actions/workflows/ci.yml)
 &nbsp;![Solidity](https://img.shields.io/badge/Solidity-0.8.30-363636)
 &nbsp;![Foundry](https://img.shields.io/badge/tested%20with-Foundry-black)
+&nbsp;![Tests](https://img.shields.io/badge/tests-126%20passing-2ea043)
 &nbsp;![Somnia testnet](https://img.shields.io/badge/Somnia-testnet%2050312-7000FF)
+
+---
+
+## Links
+
+| | |
+|---|---|
+| 🎬 **Demo video** | _to be added (2–5 min)_ |
+| 🖥️ **Live dApp** | _to be added (Vercel)_ |
+| 🌐 **Mock issuer site** (agent target) | [sentinel-issuer.vercel.app](https://sentinel-issuer.vercel.app) — [`/issuer/incident`](https://sentinel-issuer.vercel.app/issuer/incident) · [`/issuer/social`](https://sentinel-issuer.vercel.app/issuer/social) · [`/api/peg-status`](https://sentinel-issuer.vercel.app/api/peg-status) |
+| 🔍 **Verified Oracle** (Shannon Explorer) | [`0xe6d838c0…a91c`](https://shannon-explorer.somnia.network/address/0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c) |
+| 📖 **Docs** | [Architecture](docs/ARCHITECTURE.md) · [Demo runbook](docs/DEMO.md) · [Security](docs/SECURITY.md) |
 
 ---
 
 ## The problem
 
-On-chain insurance today is slow where it matters most. Nexus Mutual settles via member votes that take days or weeks. Risk Harbor and InsurAce lean on centralized oracles you have to trust. None of them can react to a stablecoin depeg in the window that actually matters — the first minutes, when the peg is breaking and nobody yet agrees on *why*.
+On-chain insurance is slow exactly where it matters most. Nexus Mutual settles via member votes that take days. Risk Harbor and InsurAce lean on centralized oracles you have to trust. None of them can react to a stablecoin depeg in the window that counts — the first minutes, when the peg is breaking and nobody yet agrees on *why*.
 
-A stablecoin can lose its peg from a contract exploit, a bank run, a regulatory action, or a transient technical glitch — and each cause deserves a different response. The hard part isn't detecting the price move; it's determining the **cause**, fast, in a way nobody has to trust.
+And the *why* is the whole game. A stablecoin can break its peg from a **contract exploit**, a **bank run**, a **regulatory action**, or a **transient technical glitch** — and each deserves a different response. Detecting the price move is easy; determining the **cause**, fast, in a way nobody has to trust, is the hard part. That is the problem Sentinel solves.
 
 ## What Sentinel does
 
 ```mermaid
 flowchart LR
-    A[Reactivity:<br/>watch peg] -->|deviation ≥ threshold| B[Agent 1: JSON API<br/>confirm via price basket]
-    B -->|corroborated| C[Agent 2: LLM Parse Website<br/>read issuer site / X / GitHub]
-    B -->|single bad oracle| X[Dismissed]
-    C --> D[Agent 3: LLM Inference<br/>classify cause]
-    D -->|3 validators agree| E[Payout matrix]
-    E --> F[Immediate payout<br/>exploit]
-    E --> G[Vested payout<br/>bank run / regulatory]
+    A[Reactivity<br/>watch the peg] -->|deviation ≥ threshold| B[Agent 1 · JSON API<br/>confirm via price basket]
+    B -->|single bad oracle| X[Dismissed · no payout]
+    B -->|corroborated 3/3| C[Agent 2 · Parse-Website<br/>issuer disclosure]
+    C --> D[Agent 2 · Parse-Website<br/>status feed]
+    D --> E[Agent 3 · LLM Inference<br/>classify cause]
+    E -->|verdict 3/3| F[Payout matrix]
+    F --> G[Immediate 100%<br/>exploit]
+    F --> H[Vested / scaled<br/>bank run · regulatory · glitch]
 ```
 
-1. A **Somnia Reactivity** subscription watches a stablecoin's price feed — no off-chain keeper.
-2. On a sustained depeg, an on-chain handler fires and dispatches a **Somnia Agent (JSON API)** to confirm the move across an independent price basket. A single bad oracle is never enough to pay out.
-3. If corroborated, a **Somnia Agent (LLM Parse Website)** reads the issuer's homepage, social, and recent GitHub activity.
-4. A **Somnia Agent (LLM Inference)** classifies the cause — `SMART_CONTRACT_EXPLOIT`, `BANK_RUN`, `REGULATORY`, `TECHNICAL_GLITCH`, or `UNKNOWN` — and a validator subcommittee must reach consensus on the answer.
-5. A payout matrix routes funds from an LP pool: exploits pay 100% immediately; softer causes vest to deter farming. Every validator vote and agent receipt is recorded on-chain and rendered in a public audit trail.
+1. A **Somnia Reactivity** subscription watches a stablecoin's price feed — with **no off-chain keeper**.
+2. On a sustained depeg, the on-chain handler fires and dispatches a **JSON-API agent** to confirm the move across an independent price basket. *A single price source is never enough to pay out.*
+3. If corroborated, two **Parse-Website agents** read two independent web sources — the issuer's formal incident disclosure **and** its status feed — so a single spoofed or stale page can't drive a verdict.
+4. An **LLM-Inference agent** classifies the cause into a fixed taxonomy — `SMART_CONTRACT_EXPLOIT`, `BANK_RUN`, `REGULATORY`, `TECHNICAL_GLITCH`, or `UNKNOWN` — constrained to one token so the validator subcommittee can agree byte-for-byte.
+5. A payout matrix routes funds from an LP pool: exploits pay **100% immediately**; softer causes **vest or scale** to deter farming. Every validator vote and agent receipt is stored on-chain and rendered in a public audit trail.
+
+The whole chain runs autonomously — Reactivity → Agent → callback → next Agent → … → payout — with no human between detection and settlement.
 
 ## Why only on Somnia
 
 | Capability Sentinel needs | Why other chains can't | Somnia primitive used |
 |---|---|---|
-| Detect a depeg with no off-chain keeper | Ethereum/L2s need Gelato/Chainlink Automation polling | **Reactivity** (validators invoke the handler directly) |
-| Investigate cause with AI you don't have to trust | AI calls elsewhere are a centralized API — the studio could lie | **Somnia Agents** (LLM inference re-run by a validator subcommittee) |
-| Pay out in the same block as the event | L1 finality + oracle delay measured in minutes | Sub-second finality, sub-cent fees |
-| Prove the verdict | No chain produces a multi-validator-signed AI result | **Consensus-validated agent receipts** |
+| Detect a depeg with no off-chain keeper | Ethereum/L2s need Gelato/Chainlink Automation polling | **Reactivity** — validators invoke the handler directly on a matched event |
+| Investigate the cause with AI you don't have to trust | An AI call elsewhere is a centralized API — the studio could lie | **Somnia Agents** — LLM inference re-run by a validator subcommittee |
+| Pay out in the same flow as the event | L1 finality + oracle delay measured in minutes | Sub-second finality, sub-cent fees |
+| Prove the verdict | No chain produces a multi-validator-signed AI result | **Consensus-validated agent receipts**, persisted on-chain |
+
+## Design highlights
+
+Each of these is a deliberate engineering decision — most of them a response to something learned running on the live platform.
+
+- **Tiered consensus, matched to safety role.** Consensus is *not* uniform across the pipeline. The two stages that **sign the payout** — the price **Confirm** (JSON-API) and the **Classify** verdict (LLM-Inference, constrained to one token via `allowedValues`) — require strict **3-of-3 unanimity, byte-identical**. The free-form **Parse-Website** investigate stages, which only *gather corroborating evidence*, require a **2-of-3 majority**. Why: on-chain receipts showed the Parse-Website subcommittee reliably musters only 2 of 3 validators on testnet (the responders agree perfectly; the third is simply absent), so demanding unanimity there is a pure liveness tax with no safety gain — while the verdict that releases funds still demands full unanimity. ***The payout signs only on 3-of-3; the evidence needs a byte-identical majority.*** (`SentinelOracle._requiredFor` / `_consensusResult`.)
+- **Two-source investigation.** The cause isn't read from one page. The Oracle scrapes the issuer's formal disclosure *and* a separate status feed — two distinct Parse-Website calls across sequential stages — then classifies on the merged evidence.
+- **Receipts are on-chain, not reconstructed.** Every validator vote is stored by the Oracle (`getReceipts(eventId)`) and read in a single call — no `eth_getLogs` window limit, no off-chain indexer, no backend. The `/audit` screen is a pure contract read: refresh-proof, works for any historical event, and makes each receipt a first-class on-chain artifact.
+- **Funding-safe reactive callback.** Detection and every agent dispatch turn all failure modes (underfunding, a platform revert, a missing feed, no-consensus, timeout) into parked, **retriable `Failed` states** — never a revert inside the Reactivity callback, which would brick the subscription. The operator can `retry(eventId)` from exactly where the chain stalled.
+- **Solvency by construction.** The pool enforces a utilization cap (no overselling coverage the capital can't back), reserves capital the instant a policy settles (`paid ≤ reserved`, per policy and in aggregate), and **locks LP withdrawals while any insured stable has a live event**.
 
 ## How this maps to the judging criteria
 
 | Criterion | How Sentinel addresses it |
 |---|---|
-| **Functionality** | Deployed on Somnia testnet; full detect→confirm→investigate→classify→payout flow runs end-to-end without manual steps. |
-| **Agent-First Design** | Uses all three base agents (JSON API, LLM Parse Website, LLM Inference) in a single autonomous chain; agents *decide whether and how much* to pay, not just automate a transfer. |
-| **Innovation & Technical Creativity** | First parametric insurer whose **claim investigation is consensus-validated**; chains Reactivity → Agents → payout; the audit receipt is a first-class on-chain artifact. |
-| **Autonomous Performance** | No human in the loop between detection and settlement; the system maintains a strict state machine and handles every agent response status (success, failure, no-consensus, timeout) safely. |
+| **Functionality** | Deployed and source-verified on Somnia testnet; the full detect→confirm→investigate→classify→payout flow runs end-to-end with no manual steps. Two stablecoins (USDC + USDT) are independently insurable. |
+| **Agent-First Design** | Uses all three base agents (JSON API, LLM Parse Website, LLM Inference) in one autonomous chain; the agents *decide whether and how much to pay*, not just automate a transfer. |
+| **Innovation & Technical Creativity** | First parametric insurer whose **claim investigation is itself consensus-validated**, across **two independent web sources**, with a **tiered** consensus rule and on-chain receipts as the proof artifact. |
+| **Autonomous Performance** | No human in the loop between detection and settlement; a strict state machine handles every agent response status (success, failure, no-consensus, timeout) safely and fails closed. |
 
-## Design highlights
+## Architecture at a glance
 
-A few decisions worth calling out — each is a deliberate engineering response to something we learned building on the live platform:
+Five contracts plus a Next.js frontend. The contracts turn a price deviation into a justified, consensus-backed payout; the frontend lets policyholders buy coverage, LPs provide capital, and anyone audit a decision.
 
-- **Tiered consensus, matched to safety role.** Consensus is *not* uniform across the pipeline. The two stages that **sign the payout** — the price **Confirm** (JSON-API) and the **Classify** verdict (LLM-Inference, constrained to one token via `allowedValues`) — require strict **3-of-3 unanimity, byte-identical**. The free-form **Parse-Website** investigate stages, which only *gather corroborating evidence*, require a **2-of-3 majority**. Why: on-chain receipts showed the Parse-Website subcommittee reliably musters only 2 of 3 validators on testnet (the responders agree perfectly; the third is simply absent), so demanding unanimity there is a pure liveness tax with no safety gain — while the verdict that releases funds still demands full unanimity. *The payout signs only on 3-of-3; the evidence needs a byte-identical majority.* (`SentinelOracle._requiredFor` / `_consensusResult`.)
-- **Two-source investigation.** The cause isn't read from one page. The Oracle scrapes the issuer's formal disclosure *and* a separate status feed (two distinct Parse-Website calls), then classifies on the merged evidence — so a single spoofed or stale page can't drive a payout.
-- **Receipts are on-chain, not reconstructed.** Every validator vote is stored by the Oracle (`getReceipts(eventId)`) and read in one call — no `eth_getLogs` window limit, no off-chain indexer. The `/audit` screen is a pure contract read, refresh-proof and verifiable.
-- **Funding-safe reactive callback.** Detection and every agent dispatch turn all failure modes into parked, retriable `Failed` states — never a revert inside the Reactivity callback (which would brick the subscription).
-
-## Tech stack
-
-- **Contracts:** Solidity · Foundry (tests/fuzz/invariants) · Hardhat (deploy/TS interop) · OpenZeppelin
-- **Frontend:** Next.js (App Router) · TypeScript · Tailwind · ethers v6 · wagmi/viem
-- **Somnia:** Agents platform · Reactivity · [LI.FI](https://li.fi) for cross-chain deposits
-- **Network:** Somnia testnet (mainnet-ready architecture)
-
-## Quickstart
-
-```bash
-git clone <repo-url> sentinel && cd sentinel
-cp .env.example .env          # fill in RPC, deployer key, platform addresses
-forge install                  # contract deps
-npm install                    # frontend + scripts deps
-
-forge build && forge test      # run the contract test suite
-
-# Deploy + wire + seed the protocol on Somnia testnet (see docs/DEMO.md for the full runbook)
-pnpm deploy:testnet
-
-# Run the demo trigger: push USDC below peg and watch the pipeline settle
-pnpm simulate:depeg
-
-# Frontend
-cd frontend && npm run dev
-```
-
-You'll need Somnia testnet tokens (from the Somnia Discord `#dev-chat` faucet) for deployment and agent-request deposits.
-
-## Build status
-
-| Phase | State |
+| Contract | Responsibility |
 |---|---|
-| **0 · Verify & scaffold** | ✅ Done — Foundry + Hardhat + Next.js on Somnia testnet; live docs verified |
-| **0 · Riskiest-path spike** | ✅ **Passed (2026-05-29)** — both agents reached validator consensus on testnet ([`docs/spike-results.md`](docs/spike-results.md)) |
-| **2 · Core engine** | ✅ **Done (2026-05-31)** — all five contracts built, tested, deployed + wired on testnet; `simulate-depeg` ran the full detect→classify→payout chain autonomously in ~27s |
-| **3 · Frontend** | ✅ **Done (2026-05-31)** — peg dashboard, coverage, LP, and the on-chain audit centerpiece, on the Editorial-Technical brand system; in-UI claim/settle + live pipeline stepper |
-| **4 · Harden & ship** | 🚧 In progress — 121 tests green, security checklist passed, CI live; remaining: demo video + submission |
+| `SentinelRegistry` | Operator-managed registry of insurable stablecoins (peg, thresholds, premium rate, deviation tiers, issuer URLs). |
+| `SentinelPool` | ERC-4626-style LP vault — NAV/shares, premium accrual, outstanding-liability tracking, utilization cap, settling-event withdrawal lock. |
+| `SentinelPolicy` | ERC-721 coverage — quote/buy, premium routing, min-age anti-farming, claim lifecycle. |
+| `SentinelTreasury` | Payout-matrix execution — immediate (exploit) vs. vested/delayed; per-policy `settle` (no unbounded loop); reentrancy-guarded. |
+| `SentinelOracle` | The reactive engine + agent orchestrator — the event state machine, the 3-agent chain, tiered consensus, and the on-chain receipt store. |
 
-**Phase 2 progress** (bottom-up by dependency — `Registry`/libs → `Pool` → `Policy` → `Treasury` → `Oracle`):
+`libraries/`: `Classification` (cause enum + strict agent-token parse), `PayoutMath` (the payout/timing matrix), `FixedPoint` (1e18/bps math). `mocks/`: `MockPriceOracle` (operator-controlled price for a deterministic demo) and `MockStable`. Full design, the state-machine diagram, and the decisions log are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-| Step | What | State |
-|---|---|---|
-| Reactivity micro-spike | On-chain `_onEvent` fires on a price update, no keeper | ✅ proven on testnet |
-| Libraries | `Classification` (cause enum + agent-token parse), `FixedPoint` (1e18/bps), `PayoutMath` (the §5 matrix) | ✅ tested |
-| `SentinelRegistry` | Operator-managed insurable-stable config | ✅ tested |
-| `SentinelPool` | ERC-4626-style LP vault: NAV, premiums, utilization cap, withdrawal lock | ✅ unit + fuzz + invariant |
-| `SentinelPolicy` | ERC-721 coverage: quote/buy, premium routing, min-age anti-farming, claim lifecycle | ✅ unit + fuzz |
-| `SentinelTreasury` | Payout-matrix execution: immediate (exploit) vs. vested/delayed; per-policy settle; reentrancy-guarded | ✅ unit + reentrancy |
-| `SentinelOracle` | Reactive detect→confirm→investigate→classify→route orchestrator + 3-agent chain | ✅ integration (mock platform) |
-| Deploy + wire + simulate | `script/deploy.ts` (deploy 8 contracts, wire roles, register, fund+arm, seed, buy) + `script/simulate-depeg.ts` (trigger → pipeline → settle) | ✅ **ran live on testnet** — full 3-agent chain settled an exploit payout in ~27s (addresses below) |
-| Full 3-agent chain (live) | Reactivity → JSON-API confirm → LLM Parse-Website investigate → LLM-Inference classify → payout, end-to-end on testnet | ✅ proven 2026-05-31 (sequential blocks, all stages reached validator consensus) |
+## Deployed & verified addresses (Somnia testnet, chain 50312)
 
-**121 Foundry tests passing**, including a solvency-invariant suite over 128k random operation sequences, a reentrancy-attack regression test on the payout path, and a full Oracle state-machine suite (28 tests) driven by a mock 3-validator agent platform (every `ResponseStatus` branch, callback idempotency, detection gating, an agent-payload selector lock, the free-the-live-slot-on-failure regression, and on-chain-receipt persistence). CI (`.github/workflows/ci.yml`) runs `forge fmt`/`build`/`test` + the frontend typecheck/build on every push.
-
-**Both Somnia primitives are proven on-chain** — this is the project's core de-risking:
-
-| Primitive | What was proven | Tx |
-|---|---|---|
-| Agents · JSON API (`13174…0097713`) | consensus on a live price feed → `0.9980` | [`0x8eb8a3ca…66fcb`](https://shannon-explorer.somnia.network/tx/0x8eb8a3ca4b1e42091d0b15df8cb577abfb65fe23235e677c4b538b6fb0c66fcb) |
-| Agents · LLM Inference (`12847…1029384`) | Qwen3-30B classified a depeg as `SMART_CONTRACT_EXPLOIT`, **both validators byte-identical** | [`0x416164a0…566d`](https://shannon-explorer.somnia.network/tx/0x416164a07c4b811b77a76e6421aa0580c01ebbf29ea16c98da331bdf0406566d) |
-| Reactivity | a price-feed event invoked the handler on-chain with the correct decoded payload, **no off-chain keeper** | [`0x1ff5fd04…46396`](https://shannon-explorer.somnia.network/tx/0x1ff5fd0458b0c5f83ee7deb87fe2e2163bed87353fe7af8e8cc73cfa42d46396) |
-
-Consensus-validated AI classification + keeperless on-chain detection are the two things that make Sentinel possible, and both now work on testnet — before any business logic depended on them.
-
-## Deployed addresses (Somnia testnet)
-
-> Deployed and **source-verified** on Shannon Explorer 2026-05-31 (chain id 50312) — every contract below carries the green “Verified” tab (Code / Read / Write). Runs **tiered validator consensus** (`createAdvancedRequest`, `ConsensusType.Threshold`): the payout-signing stages — price **Confirm** and the **Classify** verdict — require strict **3-of-3 unanimity**, while the two Parse-Website **investigate** stages (free-form web evidence) require a **2-of-3 majority** (that agent only reliably musters a quorum on testnet — see “Design highlights”). Plus a **sequential two-source investigation** (issuer disclosure + status feed) and **two independently insurable stablecoins** (USDC + USDT). Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by `/audit` — no off-chain indexer.
+> Deployed and **source-verified** on Shannon Explorer — every contract carries the green “Verified” tab (Code / Read / Write). The live Oracle runs **tiered validator consensus**, the **two-source investigation**, and **two independently insurable stablecoins** (USDC + USDT). Every validator vote is persisted on-chain (`SentinelOracle.getReceipts`) and rendered by `/audit` — no off-chain indexer.
 >
-> Re-verify any deploy with `pnpm verify:testnet` (forge → Blockscout). Note: Shannon Explorer’s indexer flags a freshly-deployed address as a contract a few minutes after deploy; verification (and the Code/Read/Write tabs) only become available once it does.
+> Re-verify any deploy with `pnpm verify:testnet` (forge → Blockscout). Note: Shannon Explorer's indexer flags a fresh address as a contract a few minutes after deploy; the Code/Read/Write tabs (and verification) only become available once it does.
 
 | Contract | Address |
 |---|---|
@@ -146,72 +112,108 @@ Consensus-validated AI classification + keeperless on-chain detection are the tw
 | SentinelTreasury | [`0x056AA4097aED8887C013Ce953b936c03aEA32FeF`](https://shannon-explorer.somnia.network/address/0x056AA4097aED8887C013Ce953b936c03aEA32FeF) |
 | SentinelOracle | [`0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c`](https://shannon-explorer.somnia.network/address/0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c) |
 
-Insured stables: **USDC** [`0x0195df87…8EEF`](https://shannon-explorer.somnia.network/address/0x0195df878eAF2bd487E08550fAfA4479a2bb8EEF) (policy #1) · **USDT** [`0x573e0382…44a7`](https://shannon-explorer.somnia.network/address/0x573e03824092276ba29FCb2F98B07910ed9944a7) (policy #2).
+Insured stables: **USDC** [`0x0195df87…8EEF`](https://shannon-explorer.somnia.network/address/0x0195df878eAF2bd487E08550fAfA4479a2bb8EEF) · **USDT** [`0x573e0382…44a7`](https://shannon-explorer.somnia.network/address/0x573e03824092276ba29FCb2F98B07910ed9944a7). Scaffolding: CAPITAL/sUSD [`0x88f973BA…Cba9`](https://shannon-explorer.somnia.network/address/0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9) · MockPriceOracle [`0xE31b784B…FE7d`](https://shannon-explorer.somnia.network/address/0xE31b784B34f7F986AA2965c33609e15533E0FE7d) · Reactivity subscription `3711687`.
 
-Demo scaffolding (operator-controlled, for reproducing the trigger): CAPITAL/sUSD [`0x88f973BA…Cba9`](https://shannon-explorer.somnia.network/address/0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9) · MockPriceOracle [`0xE31b784B…FE7d`](https://shannon-explorer.somnia.network/address/0xE31b784B34f7F986AA2965c33609e15533E0FE7d) · Reactivity subscription `3711687`.
+## Both Somnia primitives, proven on-chain
 
-## Demo
+The project's core de-risking — each primitive was proven on testnet *before* any business logic depended on it:
 
-> _Demo video link to be added (2–5 min)._ See [docs/DEMO.md](docs/DEMO.md) for the runbook and how to reproduce it locally.
+| Primitive | What was proven | Tx |
+|---|---|---|
+| Agents · JSON API (`13174…0097713`) | validator consensus on a live price feed → `0.9980` | [`0x8eb8a3ca…66fcb`](https://shannon-explorer.somnia.network/tx/0x8eb8a3ca4b1e42091d0b15df8cb577abfb65fe23235e677c4b538b6fb0c66fcb) |
+| Agents · LLM Inference (`12847…1029384`) | Qwen3-30B classified a depeg as `SMART_CONTRACT_EXPLOIT`, **validators byte-identical** | [`0x416164a0…566d`](https://shannon-explorer.somnia.network/tx/0x416164a07c4b811b77a76e6421aa0580c01ebbf29ea16c98da331bdf0406566d) |
+| Reactivity | a price-feed event invoked the handler on-chain with the correct decoded payload, **no keeper** | [`0x1ff5fd04…46396`](https://shannon-explorer.somnia.network/tx/0x1ff5fd0458b0c5f83ee7deb87fe2e2163bed87353fe7af8e8cc73cfa42d46396) |
 
-The demo is deterministic by design: a mock price oracle (under operator control) and a mock issuer page let the full depeg → investigation → payout flow be triggered live and repeatably.
+## Testing
+
+**126 Foundry tests passing**, plus a frontend unit suite. The contract suite includes:
+
+- **Unit + fuzz** across every contract — premium/NAV math, payout-matrix cells, share/asset accounting over random deposit/withdraw sequences.
+- **Invariant** — pool solvency over 128k random operation sequences (`availableCapital + reserved == totalAssets`; `paid ≤ reserved`).
+- **Oracle state machine (33 tests)** driven by a mock 3-validator platform — every `ResponseStatus` branch, callback idempotency, detection gating, the agent-payload selector lock, the free-the-live-slot-on-failure regression, on-chain-receipt persistence, the two-source investigation, and the **tiered-consensus rules** (3/3 required on Confirm/Classify; 2-of-3 accepted on the investigate stages; a divergent majority still fails).
+- **Reentrancy** regression on the payout path.
+- **Frontend** — `vitest` over the pure formatters and the contract-enum mirrors (locks the on-chain enum ordering the audit UI depends on).
+
+CI (`.github/workflows/ci.yml`) runs `forge fmt`/`build`/`test` and the frontend typecheck/test/build on every push.
+
+## Tech stack
+
+- **Contracts:** Solidity 0.8.30 · Foundry (unit/fuzz/invariant) · Hardhat (deploy + TS interop) · OpenZeppelin
+- **Frontend:** Next.js (App Router) · TypeScript · Tailwind · wagmi v2 / viem · RainbowKit
+- **Somnia:** Agents platform · Reactivity · Shannon Explorer (Blockscout) source verification
+- **Network:** Somnia testnet — mainnet-ready architecture
+
+## Run it yourself
+
+```bash
+git clone https://github.com/Manuel-dev01/Sentinel sentinel && cd sentinel
+cp .env.example .env            # fill RPC, deployer key, platform + issuer URLs
+forge install                  # contract deps
+pnpm install                   # scripts + frontend deps
+
+forge build && forge test      # 126 tests
+
+# Deploy frontend/ to Vercel first so the agents have public URLs to read
+# (see docs/DEMO.md §1a — the JSON confirm feed and the two HTML issuer pages
+#  must be three different URLs).
+
+pnpm deploy:testnet            # deploy 9 contracts, wire roles, register USDC+USDT,
+                               # fund + arm the Oracle, seed the pool, buy demo policies
+pnpm verify:testnet            # source-verify every contract on Shannon Explorer
+node script/gen-frontend.mjs   # resync frontend addresses + ABIs
+pnpm simulate:depeg            # push USDC below peg, watch the pipeline settle
+
+cd frontend && pnpm build && pnpm start   # run the dApp (next dev OOMs on low-mem hosts)
+```
+
+You'll need Somnia testnet tokens (from the [faucet](https://testnet.somnia.network/)) — the Oracle holds ≥32 STT to own its Reactivity subscription plus a budget for agent-request deposits.
 
 ## Repository structure
 
 ```
-src/            Solidity contracts (Registry, Pool, Policy, Treasury, Oracle, libraries, mocks)
+src/            Solidity contracts (Registry · Pool · Policy · Treasury · Oracle · libraries · mocks)
 test/           Foundry unit / fuzz / invariant / integration tests
-script/         Deploy + demo scripts (simulate-depeg)
-frontend/       Next.js app (peg dashboard, policies, LP, audit trail)
+script/         deploy.ts · verify.ts · simulate-depeg.ts · gen-frontend.mjs · spikes
+frontend/       Next.js app — peg dashboard, coverage, LP, the on-chain audit trail, mock issuer pages
 docs/           ARCHITECTURE · DEMO · SECURITY
 CLAUDE.md       Engineering manual (project source of truth)
 ```
 
-## Documentation
+## Scope status
 
-- [**Architecture**](docs/ARCHITECTURE.md) — system design, the event state machine, agent orchestration, contract responsibilities, design-decision log.
-- [**Demo runbook**](docs/DEMO.md) — the minute-by-minute demo script, deterministic setup, and live-failure fallback.
-- [**Security**](docs/SECURITY.md) — threat model, trust assumptions, attack vectors and mitigations, prototype limitations.
+**MVP — fully shipped:** the full autonomous detect→confirm→investigate→classify→pay flow with all three agents · the exploit→immediate-payout hero path · LP deposit/withdraw · policy buy/claim · the on-chain audit centerpiece · a deterministic demo · testnet deploy + source verification · complete docs.
 
-## Scope status — what's shipped, what's stretch, what's left
-
-**MVP (all shipped):** one insured stablecoin · full autonomous detect→confirm→investigate→classify→pay flow with all three agents · exploit→immediate-payout hero path · LP deposit/withdraw · policy buy/claim · the on-chain audit screen · deterministic demo · testnet deploy · README + architecture/security/demo docs.
-
-**Stretch (§19) status:**
+**Stretch:**
 
 | Item | Status |
 |---|---|
-| Full vesting for all classes | ✅ Done — `PayoutMath.timing` covers all 5 causes; Treasury executes immediate/vested/delayed |
-| Multiple deviation tiers | ✅ Done — 3-tier payout scaling, configurable per stable |
-| LI.FI deposits | ✅ Done (pragmatic) — Jumper deep-link funding panel on `/lp` + `/policies` (Somnia + USDC.e) |
-| Multiple stablecoins | 🟡 Partial — Registry fully supports it; the deploy + frontend are single-stable |
-| APY analytics | ✅ Done — estimated LP yield from active coverage on `/lp` |
-| CI badges | ✅ Done — GitHub Actions + badge (this section's top) |
-| Mainnet deploy | ❌ Deferred — unaudited; testnet-first by design (CLAUDE.md §25) |
-| 2nd agent target (GitHub commits) | ❌ Not done — investigate uses the issuer page only; `socialUrl`/`repoUrl` are stored but unwired |
+| Full vesting for all causes | ✅ `PayoutMath.timing` covers all 5 causes; Treasury executes immediate/vested/delayed |
+| Multiple deviation tiers | ✅ 3-tier payout scaling, configurable per stable |
+| **Multiple stablecoins** | ✅ USDC + USDT, both insurable; frontend stable-selector |
+| **Two-source investigation** | ✅ issuer disclosure + status feed (sequential Parse-Website stages) |
+| APY analytics | ✅ estimated LP yield from active coverage on `/lp` |
+| Source verification | ✅ all contracts verified on Shannon Explorer (`pnpm verify:testnet`) |
+| CI + badges | ✅ GitHub Actions; forge + frontend jobs |
+| Cross-chain deposits (LI.FI) | ⏸️ Deferred to a mainnet phase — LI.FI moves real liquid tokens on mainnet chains; it can't settle into a mock testnet capital token |
+| Mainnet deploy | ❌ Deferred — unaudited; testnet-first by design |
 
-**What's left to be submission-complete:**
-- **Demo video** (2–5 min, §17) — not recorded.
-- **Manual wallet pass** — the live connect→simulate→claim click-through (HTTP/SSR render is verified; wallet interaction needs a browser + the operator wallet).
-- **Deploy the dApp to Vercel** + set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (the mock-issuer site is already deployed and wired).
-
-**Known gaps / non-blocking notes:** the audit route is `/audit/[eventId]` (per-event), not the literal `[requestId]` in §12; `deployments/` is untracked (addresses live in this README + the local artifact); the frontend has no unit tests (contracts are fully covered); `next dev` OOMs on low-memory hosts — use `next build && next start`.
+**To be submission-complete:** record the demo video; publish the live dApp URL (the mock-issuer site is already deployed and wired).
 
 ## Roadmap (post-hackathon)
 
-- Multiple insured stablecoins with risk-priced premiums
+- Risk-priced premiums per stablecoin and a real actuarial model
 - Partner integration: underwrite a Somnia-native stablecoin's own depeg coverage
-- Real actuarial pricing model and capital-efficiency improvements
-- Security audit and upgrade path
-- Cross-chain coverage via LI.FI for stablecoins on any connected chain
+- A third investigation source (issuer GitHub activity — `repoUrl` is already stored)
+- Cross-chain coverage and deposits via LI.FI on mainnet
+- Security audit and a managed upgrade path
 
 ## Status & disclaimer
 
-This is a hackathon prototype. The contracts are **unaudited** and deployed on testnet for demonstration. Do not use with real funds. Somnia Agents and Reactivity are new platforms; integration details are verified against the live docs at build time and may evolve.
+This is a hackathon prototype. The contracts are **unaudited** and deployed on testnet for demonstration only — do not use with real funds. Somnia Agents and Reactivity are new platforms; integration details are verified against the live docs at build time and may evolve.
 
 ## Author
 
-Built solo by Emmanuel for the Somnia Agentathon.
+Built solo by **Emmanuel** for the Somnia Agentathon.
 
 ## License
 

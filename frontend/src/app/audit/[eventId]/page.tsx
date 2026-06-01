@@ -222,8 +222,8 @@ export default function AuditPage() {
                       {STAGE_TITLE[r0.stage] ?? STAGE[r0.stage]}
                     </h2>
                     <div className="muted" style={{ fontFamily: "var(--mono)", fontSize: 12, marginBottom: 20 }}>
-                      request #{r0.requestId.toString()} · {successCount}/{votes.length} validators returned Success ·{" "}
-                      {timeAgo(r0.timestamp)}
+                      request #{r0.requestId.toString()} · {agreedCount}/{COMMITTEE} validators agreed ·{" "}
+                      {required === 3 ? "3/3 unanimity required" : "2/3 majority required"} · {timeAgo(r0.timestamp)}
                     </div>
 
                     <div

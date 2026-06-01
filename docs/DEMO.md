@@ -82,54 +82,53 @@ agent-request budget at `arm()` time. `deploy.ts` parks 34 STT in it by default
 - **Mock issuer page** — a static page (e.g., on Vercel) whose copy plainly states the issuer was exploited, so the LLM-Parse-Website agent has unambiguous evidence and the LLM-Inference classification is stable across validators.
 - **Price basket** — the JSON-API confirmation reads endpoints you control or that reliably return the depegged price, so the confirm stage corroborates deterministically.
 
-## 4. The script (target ~3 minutes)
+## 4. The script — full shot list (slow-paced, music-backed; target ~3:30)
 
-**0:00–0:20 — The hook.**
-> "On-chain insurance is too slow where it matters. Sentinel pays out faster than the rumor cycle — and proves *why* it paid. It's parametric depeg insurance where an AI investigation, validated by the chain's own consensus, decides the claim. It only works on Somnia."
+**Format.** Calm, cinematic, **background music throughout** (no rushed voice-over). Communicate with **on-screen captions** (short text overlays, lower-third or centered) — optional soft VO can read the same lines if you want a voice, but the captions carry the story so it works muted. Smooth cursor movement; let each panel breathe 2–3 s before clicking.
 
-Show the peg dashboard: stablecoin at peg, pool funded, a policy active.
+**Time compression (important).** The two-source pipeline takes a few real minutes (the Parse-Website scrapes dominate). **Record the whole run unbroken**, then in the edit **speed-ramp / cut the agent waits** so the final cut is ~3:30. The stepper advancing and the audit receipts are the payoff — keep those at real speed; compress only the dead waits. **Pre-warm `/issuer/incident` and `/issuer/social` in a browser tab right before recording** so the scrapers don't stall on a cold page.
 
-**0:20–0:50 — The hero moment.**
-Press **Simulate Depeg**. Start the on-screen timer. Narrate as the dashboard updates live:
-> "Reactivity fires — no keeper. A JSON-API agent confirms the depeg across a price basket, so one bad oracle can't trigger a payout. Then a two-source investigation: an agent reads the issuer's formal disclosure and a second reads its status feed. A third agent classifies the cause — and the verdict that signs the payout requires all three validators to agree."
+**Pre-roll setup (before you hit record).** Connect the operator wallet. Be on the dashboard with the peg healthy. Make sure the pool is seeded and a policy is active (the deploy does this). Have the stable selector on **USDC**.
 
-Show the classification land as `SMART_CONTRACT_EXPLOIT` and the payout transaction confirm. **Stop the timer.** Call out the elapsed time. (The investigation runs a few minutes — trim the agent waits in the edit; the payout itself is instant once the verdict signs.)
+| Time | On screen / camera | 👆 Your click / action | Caption (text overlay) | Edit / music note |
+|---|---|---|---|---|
+| **0:00–0:12** | Black → fade up on the Sentinel wordmark over the dark peg-monitor panel. | — (no click) | **SENTINEL** — *insurance that pays out faster than the rumor cycle, and proves why.* | Music starts soft; slow fade-in. |
+| **0:12–0:30** | The `/` dashboard, full. Cursor drifts across: live price **$1.0000**, *within tolerance*, pool capital, utilization, active policies, the **MONITORING** strip, the stepper resting at the start. | Hover (don't click) the price gauge, then the pool stats. | *One insured stablecoin, watched on-chain. No keeper. No committee.* | Hold; let it breathe. |
+| **0:30–0:42** | Move to the operator controls. | 👆 **Click `Simulate Depeg`** (the violet button). Confirm in MetaMask. | *Trip the peg — live.* | Tiny zoom-push on the button as it's clicked. |
+| **0:42–0:55** | Price gauge flips: **$0.9200**, **800 bps · BREACH** (amber). The stepper's **Detect** node lights; status strip → **IN FLIGHT**. | — (watch) | *Somnia Reactivity fires the on-chain handler — no off-chain keeper.* | Keep real-time; this is a beat. |
+| **0:55–1:25** | Stepper advances **Confirm** (green). | — (watch) | *Agent 1 · JSON-API confirms the depeg across an independent price basket. One bad oracle is never enough.* | **Speed-ramp** the wait between nodes. |
+| **1:25–1:55** | Stepper at **Investigate** (running, violet pulse). | — (watch) | *Agents 2 read two independent web sources — the issuer's incident page and its status feed.* | Cut/compress the wait; land on the node turning green. |
+| **1:55–2:15** | Stepper **Classify** → then **Settled** (all green). Gauge area shows the verdict; payout tx confirms. | — (watch) | *Agent 3 classifies the cause: **SMART_CONTRACT_EXPLOIT**. The payout signs — 100%, immediate.* | Let "Settled" land cleanly; small music lift. |
+| **2:15–2:22** | The **View investigation #N** button (violet, top-right of the monitor). | 👆 **Click `View investigation #N`** → routes to `/audit/[eventId]`. | *Now the proof.* | — |
+| **2:22–2:45** | `/audit` header → the dark **VERDICT** panel: big **SMART CONTRACT EXPLOIT**, deviation, detected vs basket price, "Verdict recorded with the Treasury." | Slow-scroll down. | *Every step is on-chain. Anyone can verify it.* | — |
+| **2:45–3:05** | The two **disclosure** blocks (source #1 homepage, source #2 social feed), then the **per-stage receipt cards**. Pause on each stamp. | 👆 Slow-scroll through the four stage cards. Hover the **stamps**. | *Tiered consensus: the price **Confirm** and the **verdict** carry **3/3** — unanimity signs the payout. The two web-evidence stages carry **2/3** — a byte-identical majority. Deliberate.* | This is the centerpiece — give it room. |
+| **3:05–3:20** | Back to app. `/lp` — NAV, **APY**, utilization cap, the **WITHDRAWALS LOCKED** banner; then `/policies` — the Policy NFT + **Claim payout**. | 👆 **Click `LP`** in the header. Then 👆 **Click `Cover`/`Policies`**. | *LPs earn the premiums and take the tail risk. The pool never oversells coverage, and locks while an event settles. Exploit pays now; softer causes vest.* | Quick, confident. |
+| **3:20–3:28** | The **stable selector** on the dashboard or coverage page. | 👆 **Click `USDT`** in the selector — show it's independently insurable. | *Two stablecoins, independently insured. The Registry scales to more.* | — |
+| **3:28–3:40** | End card: Sentinel wordmark + **GitHub** + verified **Oracle** address + "Built on Somnia: Reactivity · Agents." | — | *Built solo, on Somnia. Reactivity for detection. Agents for a trustless investigation. The smart contract is the mechanism.* | Music resolves; fade to black. |
 
-**0:50–2:10 — The proof (audit trail).**
-Open `/audit/[eventId]`.
-> "This is the part no other chain can do. Here's every agent call — confirm, two investigation sources, and the verdict. Here's each validator's individual response. And notice the consensus is *tiered*: the price confirm and the final verdict — the stages that actually release funds — carry a 3-of-3 stamp; the web-evidence stages carry a 2-of-3 majority. That's deliberate — the verdict signs only on unanimity, while the corroborating evidence needs a majority that still agrees byte-for-byte. No human touched this, and anyone can verify it on-chain."
-
-Walk the receipts: basket prices (3/3), the two parsed disclosures (2/3 each), the per-validator votes on the cause (3/3).
-
-**2:10–3:00 — The economics + interop.**
-> "LPs earn the premiums and take the tail risk. The protocol never sells more coverage than the pool can back. And the classification changes the payout — an exploit pays immediately; a bank run vests over 24 hours so you can't farm it."
-
-Show LP view (NAV, exposure, utilization cap) and the vesting difference. Show a **LI.FI** cross-chain deposit if implemented.
-
-**3:00–end — The close.**
-> "Built solo in three weeks on Somnia. Reactivity for detection, Agents for a trustless investigation, sub-second finality for same-block payout. Repo and deployed contracts are in the description."
-
-Show repo + addresses.
+**Caption-only cut (muted-friendly).** Because the story is carried by captions, the video reads with the sound off — judges often scrub muted. If you add VO, read the captions verbatim in a calm tone over the music bed (don't fight it).
 
 ## 5. Mapping the narration to judging criteria
 
-Say these words at least once so judges can check the boxes:
-- **Functionality** — "deployed, runs end-to-end, no manual steps."
-- **Agent-First Design** — "three agents make the decision, not just automate a transfer."
-- **Innovation** — "the investigation itself is consensus-validated, across two independent web sources — that's new."
-- **Autonomous Performance** — "detection to settlement with no human in the loop, and it handles failed or split agent responses safely — with *tiered* consensus: 3-of-3 unanimity to sign the payout, 2-of-3 majority on the evidence stages, matched to the agents' real behaviour on-chain."
+Make sure these land (as caption or VO) so judges can tick each box:
+- **Functionality** — *"deployed and verified on testnet; runs end-to-end, no manual steps; two stablecoins insurable."*
+- **Agent-First Design** — *"three agents make the decision across two web sources — they decide whether and how much to pay, not just automate a transfer."*
+- **Innovation & Technical Creativity** — *"the investigation itself is consensus-validated, with a tiered rule — that's new."*
+- **Autonomous Performance** — *"detection to settlement with no human in the loop; it handles failed and split agent responses safely, and fails closed."*
 
 ## 6. Recording tips
 
-- Record at a steady resolution; keep the timer and the dashboard both visible during the hero moment.
-- Pre-write the narration; read it. Don't improvise the technical claims.
-- Keep it under 5 minutes; aim for 3. Cut dead air during transaction confirmation by tightening, not by hiding it.
-- One take of the hero moment minimum; record a few and pick the cleanest.
+- Record at a steady 1080p+; keep the dashboard and the stepper both in frame during the trigger and pipeline.
+- **Pre-warm the two issuer pages** in a browser immediately before recording (a cold Vercel page can slow a validator past the timeout).
+- Record the **full pipeline in one unbroken take**, then compress the agent waits in the edit — never fake the run; just tighten the dead air with speed-ramps.
+- Do **two or three full runs** and cut from the cleanest; keep one as the live-failure fallback.
+- Choose a calm, mid-tempo, loop-friendly instrumental bed; duck it slightly under any VO.
+- Keep on-screen text short (≤ ~12 words) and on long enough to read twice.
 
 ## 7. Live-failure fallback
 
-If a stage hangs or an agent response is slow during a *live* (non-recorded) presentation:
-- The state machine parks the event safely — narrate that as a feature ("it refuses to pay without consensus").
-- Have a pre-recorded clean run of the hero moment ready to cut to.
-- Keep a screenshot set of the audit trail as a static fallback.
+If a stage hangs or an agent is slow during a *live* (non-recorded) presentation:
+- The state machine parks the event safely — narrate that as a feature: *"it refuses to pay without consensus."* The operator can `retry(eventId)` from exactly where it stalled.
+- If the Parse-Website stage stalls on a cold page, it's the validator/timeout (the 2-of-3 tier tolerates one slow validator); re-warm the page and `retry`, or cut to the pre-recorded clean run.
+- Have a pre-recorded clean hero run and a screenshot set of the audit trail ready to cut to.
 - Never show real funds; everything is testnet and clearly labeled.
