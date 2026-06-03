@@ -76,6 +76,10 @@ async function main() {
   console.log(`Demo policy:    #${tokenId.toString()}\n`);
 
   const priceOracle = await ethers.getContractAt("MockPriceOracle", c.priceOracle);
+  // Once the poller is deployed it OWNS MockPriceOracle, so operator price writes route through it.
+  const poller = c.poller ? await ethers.getContractAt("PriceFeedPoller", c.poller) : null;
+  const setAssetPrice = (asset: string, price: bigint) =>
+    poller ? poller.operatorSetPrice(asset, price) : priceOracle.setPrice(asset, price);
   const oracle = await ethers.getContractAt("SentinelOracle", c.oracle);
   const treasury = await ethers.getContractAt("SentinelTreasury", c.treasury);
   const policy = await ethers.getContractAt("SentinelPolicy", c.policy);
@@ -84,7 +88,7 @@ async function main() {
   // ───────────────────────── trigger ─────────────────────────
   console.log("─── Trigger: push USDC below peg ─────────────────────────────");
   const t0 = Date.now();
-  const setTx = await priceOracle.setPrice(c.insured, depegPrice);
+  const setTx = await setAssetPrice(c.insured, depegPrice);
   await setTx.wait();
   console.log(`setPrice(USDC, ${ethers.formatEther(depegPrice)}) tx: ${explorerTx(setTx.hash)}`);
   console.log("Reactivity will invoke SentinelOracle._onEvent (no keeper). Watching…\n");

@@ -6,7 +6,7 @@ Sentinel is agent-native insurance built on [Somnia](https://somnia.network), th
 
 The investigation itself is **consensus-validated**: independent validators must agree on the AI verdict before a single token moves, and every vote is recorded on-chain for anyone to audit. That verifiability is the entire reason Sentinel can only exist on Somnia.
 
-> Built solo for the **Somnia Agentathon** (Encode Club, 2026).
+> Built for the **Somnia Agentathon**
 
 [![CI](https://github.com/Manuel-dev01/Sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/Manuel-dev01/Sentinel/actions/workflows/ci.yml)
 &nbsp;![Solidity](https://img.shields.io/badge/Solidity-0.8.30-363636)
@@ -73,6 +73,7 @@ Each of these is a deliberate engineering decision — most of them a response t
 - **Two-source investigation.** The cause isn't read from one page. The Oracle scrapes the issuer's formal disclosure *and* a separate status feed — two distinct Parse-Website calls across sequential stages — then classifies on the merged evidence.
 - **Receipts are on-chain, not reconstructed.** Every validator vote is stored by the Oracle (`getReceipts(eventId)`) and read in a single call — no `eth_getLogs` window limit, no off-chain indexer, no backend. The `/audit` screen is a pure contract read: refresh-proof, works for any historical event, and makes each receipt a first-class on-chain artifact.
 - **Funding-safe reactive callback.** Detection and every agent dispatch turn all failure modes (underfunding, a platform revert, a missing feed, no-consensus, timeout) into parked, **retriable `Failed` states** — never a revert inside the Reactivity callback, which would brick the subscription. The operator can `retry(eventId)` from exactly where the chain stalled.
+- **Genuinely autonomous monitoring (keeperless).** A standalone `PriceFeedPoller` runs a **self-rescheduling Reactivity cron** that dispatches a JSON-API agent to fetch the **real** stablecoin price on-chain every cycle and writes it to a dedicated monitored asset — no off-chain keeper anywhere. A real depeg on that asset would autonomously fire the full pipeline. This is what makes *"Sentinel detects depegs"* literal rather than only simulated: the dashboard's **LIVE MONITOR** shows the real peg being observed on-chain. (A demo control still triggers depegs deterministically for the four demo stables.)
 - **Solvency by construction.** The pool enforces a utilization cap (no overselling coverage the capital can't back), reserves capital the instant a policy settles (`paid ≤ reserved`, per policy and in aggregate), and **locks LP withdrawals while any insured stable has a live event**.
 
 ## How this maps to the judging criteria
@@ -95,6 +96,7 @@ Five contracts plus a Next.js frontend. The contracts turn a price deviation int
 | `SentinelPolicy` | ERC-721 coverage — quote/buy, premium routing, min-age anti-farming, claim lifecycle. |
 | `SentinelTreasury` | Payout-matrix execution — immediate (exploit) vs. vested/delayed; per-policy `settle` (no unbounded loop); reentrancy-guarded. |
 | `SentinelOracle` | The reactive engine + agent orchestrator — the event state machine, the 3-agent chain, tiered consensus, and the on-chain receipt store. |
+| `PriceFeedPoller` | Autonomous keeperless monitor — a self-rescheduling Reactivity cron fetches the real price via a JSON-API agent and writes it on-chain, so a genuine depeg fires the pipeline with no human. |
 
 `libraries/`: `Classification` (cause enum + strict agent-token parse), `PayoutMath` (the payout/timing matrix), `FixedPoint` (1e18/bps math). `mocks/`: `MockPriceOracle` (operator-controlled price for a deterministic demo) and `MockStable`. Full design, the state-machine diagram, and the decisions log are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -112,7 +114,7 @@ Five contracts plus a Next.js frontend. The contracts turn a price deviation int
 | SentinelTreasury | [`0x056AA4097aED8887C013Ce953b936c03aEA32FeF`](https://shannon-explorer.somnia.network/address/0x056AA4097aED8887C013Ce953b936c03aEA32FeF) |
 | SentinelOracle | [`0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c`](https://shannon-explorer.somnia.network/address/0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c) |
 
-Insured stables: **USDC** [`0x0195df87…8EEF`](https://shannon-explorer.somnia.network/address/0x0195df878eAF2bd487E08550fAfA4479a2bb8EEF) · **USDT** [`0x573e0382…44a7`](https://shannon-explorer.somnia.network/address/0x573e03824092276ba29FCb2F98B07910ed9944a7). Scaffolding: CAPITAL/sUSD [`0x88f973BA…Cba9`](https://shannon-explorer.somnia.network/address/0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9) · MockPriceOracle [`0xE31b784B…FE7d`](https://shannon-explorer.somnia.network/address/0xE31b784B34f7F986AA2965c33609e15533E0FE7d) · Reactivity subscription `3711687`.
+Insured stables (operator-simulated, four payout classes): **USDC** `0x0195df87…8EEF` · **USDT** `0x573e0382…44a7` · **DAI** [`0x93C4284A…3435`](https://shannon-explorer.somnia.network/address/0x93C4284AF51A76b2eFf73bA9B7737fa2311E3435) · **FRAX** [`0x150A14f4…BF33`](https://shannon-explorer.somnia.network/address/0x150A14f4F3EbE3E0A85eD6B036d02ED795A6BF33). Autonomous monitor: **PriceFeedPoller** [`0xA7831e47…48cE`](https://shannon-explorer.somnia.network/address/0xA7831e477794766F5dc3CA90303e0bEB972A48cE) watching **USDC·live** [`0xb12BAA2B…c32F`](https://shannon-explorer.somnia.network/address/0xb12BAA2B5b48ED712aB3C06497E8521ea5E2c32F) (real CoinGecko price, on-chain). Scaffolding: CAPITAL/sUSD [`0x88f973BA…Cba9`](https://shannon-explorer.somnia.network/address/0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9) · MockPriceOracle [`0xE31b784B…FE7d`](https://shannon-explorer.somnia.network/address/0xE31b784B34f7F986AA2965c33609e15533E0FE7d) (owned by the poller) · detection sub `3711687`.
 
 ## Both Somnia primitives, proven on-chain
 
@@ -189,7 +191,9 @@ CLAUDE.md       Engineering manual (project source of truth)
 |---|---|
 | Full vesting for all causes | ✅ `PayoutMath.timing` covers all 5 causes; Treasury executes immediate/vested/delayed |
 | Multiple deviation tiers | ✅ 3-tier payout scaling, configurable per stable |
-| **Multiple stablecoins** | ✅ USDC + USDT, both insurable; frontend stable-selector |
+| **Multiple stablecoins** | ✅ USDC + USDT + DAI + FRAX, all insurable; frontend stable-selector |
+| **All payout classes, live** | ✅ operator **scenario switch** re-points the issuer pages so any asset can demo exploit / bank-run / regulatory / glitch |
+| **Autonomous live monitoring** | ✅ keeperless `PriceFeedPoller` (Reactivity cron + JSON-API agent) observes the real USDC peg on-chain; a genuine depeg auto-fires the pipeline |
 | **Two-source investigation** | ✅ issuer disclosure + status feed (sequential Parse-Website stages) |
 | APY analytics | ✅ estimated LP yield from active coverage on `/lp` |
 | Source verification | ✅ all contracts verified on Shannon Explorer (`pnpm verify:testnet`) |

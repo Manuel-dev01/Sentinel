@@ -40,9 +40,31 @@ export const CONTRACTS = {
     address: (process.env.NEXT_PUBLIC_INSURED_ADDRESS ?? A.insured) as `0x${string}`,
     abi: abis.MockStable,
   },
+  // Autonomous price poller. Owns MockPriceOracle, so operator price writes (Simulate/Reset) route
+  // through `operatorSetPrice`. Optional — only present once the poller is deployed.
+  poller: {
+    address: (process.env.NEXT_PUBLIC_POLLER_ADDRESS ??
+      (A as { poller?: string }).poller ??
+      "0x0000000000000000000000000000000000000000") as `0x${string}`,
+    abi: abis.PriceFeedPoller,
+  },
 } as const;
 
 export { chainId, deployment };
+
+/** Autonomous-monitor metadata (the USDC·live asset + poller), or null if not deployed. */
+export const monitor = (deployment as { monitor?: MonitorInfo | null }).monitor ?? null;
+export type MonitorInfo = {
+  poller: `0x${string}`;
+  asset: `0x${string}`;
+  symbol: string;
+  display: string;
+  policyTokenId: string;
+  url: string;
+  selector: string;
+  pollIntervalSeconds: number;
+};
+export const hasPoller = monitor !== null && CONTRACTS.poller.address !== "0x0000000000000000000000000000000000000000";
 
 /** Insured stablecoins registered at deploy time (synced by gen-frontend.mjs from the artifact). */
 export type Stable = {

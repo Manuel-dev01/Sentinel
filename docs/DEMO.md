@@ -106,6 +106,10 @@ agent-request budget at `arm()` time. `deploy.ts` parks 34 STT in it by default
 | **3:20–3:28** | The **stable selector** on the dashboard or coverage page. | 👆 **Click `USDT`** in the selector — show it's independently insurable. | *Two stablecoins, independently insured. The Registry scales to more.* | — |
 | **3:28–3:40** | End card: Sentinel wordmark + **GitHub** + verified **Oracle** address + "Built on Somnia: Reactivity · Agents." | — | *Built solo, on Somnia. Reactivity for detection. Agents for a trustless investigation. The smart contract is the mechanism.* | Music resolves; fade to black. |
 
+**Two beats you can add (both are real, on-chain):**
+- **Autonomous monitor (≈0:18, on the dashboard).** Point at the **LIVE MONITOR · USDC·live** strip — a real CoinGecko USDC price observed on-chain, ticking up the poll count with nobody touching it. Caption: *"This is live and keeperless — a Reactivity cron + agent reads the real peg on-chain. A real depeg here fires the same pipeline."* This is what makes "Sentinel detects depegs" literal, not just simulated.
+- **Any cause, live (before the trigger).** Use the operator **DEMO CAUSE** row to pick **Exploit / Bank run / Regulatory / Glitch** for the selected asset (it re-points the issuer pages via `registry.updateConfig`). Show that switching the asset (USDC→USDT→DAI→FRAX) and/or the cause changes the verdict and the payout class — exploit pays 100% now, regulatory 50% vested, etc. One clean way to show range: record an **exploit** run for the hero, then a quick **bank-run** run to show the *vested* timing difference on `/policies`.
+
 **Caption-only cut (muted-friendly).** Because the story is carried by captions, the video reads with the sound off — judges often scrub muted. If you add VO, read the captions verbatim in a calm tone over the music bed (don't fight it).
 
 ## 5. Mapping the narration to judging criteria

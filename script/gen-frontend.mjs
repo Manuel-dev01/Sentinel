@@ -21,6 +21,7 @@ const CONTRACTS = {
   SentinelPolicy: "src/SentinelPolicy.sol/SentinelPolicy.json",
   SentinelTreasury: "src/SentinelTreasury.sol/SentinelTreasury.json",
   SentinelOracle: "src/SentinelOracle.sol/SentinelOracle.json",
+  PriceFeedPoller: "src/PriceFeedPoller.sol/PriceFeedPoller.json",
   MockPriceOracle: "src/mocks/MockPriceOracle.sol/MockPriceOracle.json",
   MockStable: "src/mocks/MockStable.sol/MockStable.json",
 };
@@ -51,6 +52,7 @@ const body =
       issuerJsonUrl: deployment.issuerJsonUrl,
       issuerPageUrl: deployment.issuerPageUrl,
       issuerSocialUrl: deployment.issuerSocialUrl,
+      monitor: deployment.monitor ?? null,
     },
     null,
     2,

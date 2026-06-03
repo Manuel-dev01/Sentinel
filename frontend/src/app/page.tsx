@@ -9,11 +9,38 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { CONTRACTS, EVENT_STATE } from "@/lib/contracts";
+import { CONTRACTS, EVENT_STATE, deployment, monitor, hasPoller } from "@/lib/contracts";
 import { useStable, StableSelector } from "@/lib/stables";
-import { fmtPrice, fmtCompact, fmtBpsPct, deviationBps } from "@/lib/format";
+import { fmtPrice, fmtCompact, fmtBpsPct, deviationBps, timeAgo } from "@/lib/format";
 
 const REFRESH = 4000;
+
+// Operator demo control: which incident the issuer pages present, so a depeg can be classified as
+// any cause. Re-points the selected stable's issuer URLs (registry.updateConfig) before Simulate.
+const SCENARIOS = [
+  { id: "exploit", label: "Exploit", note: "100% · immediate" },
+  { id: "bank-run", label: "Bank run", note: "scaled · vested 24h" },
+  { id: "regulatory", label: "Regulatory", note: "50% · vested 24h" },
+  { id: "glitch", label: "Glitch", note: "0–25% · delayed" },
+] as const;
+
+function urlWithScenario(base: string, scenario: string): string {
+  try {
+    const u = new URL(base);
+    u.searchParams.set("incident", scenario);
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+function scenarioOf(url: string | undefined): string {
+  if (!url) return "exploit";
+  try {
+    return new URL(url).searchParams.get("incident") ?? "exploit";
+  } catch {
+    return "exploit";
+  }
+}
 
 export default function Dashboard() {
   const { isConnected } = useAccount();
@@ -37,7 +64,18 @@ export default function Dashboard() {
   });
 
   const price = data?.[0]?.result as bigint | undefined;
-  const cfg = data?.[1]?.result as { pegTarget: bigint; depegThresholdBps: number } | undefined;
+  const cfg = data?.[1]?.result as
+    | {
+        pegTarget: bigint;
+        depegThresholdBps: number;
+        minDurationSeconds: number;
+        annualRateBps: number;
+        tiers: { noPayoutBps: number; partialBps: number; highBps: number };
+        homepageUrl: string;
+        socialUrl: string;
+        repoUrl: string;
+      }
+    | undefined;
   const totalAssets = data?.[2]?.result as bigint | undefined;
   const available = data?.[3]?.result as bigint | undefined;
   const liability = data?.[4]?.result as bigint | undefined;
@@ -80,19 +118,68 @@ export default function Dashboard() {
   const monitoring = !inFlight && !breached;
   const displayState = monitoring ? 0 : (eventState ?? 0);
 
+  // Autonomous live monitor (the poller's on-chain price observations of the real USDC peg).
+  const { data: monData } = useReadContracts({
+    contracts: hasPoller
+      ? [
+          { ...CONTRACTS.poller, functionName: "lastObservedPrice" },
+          { ...CONTRACTS.poller, functionName: "lastObservedAt" },
+          { ...CONTRACTS.poller, functionName: "pollCount" },
+          { ...CONTRACTS.poller, functionName: "armed" },
+        ]
+      : [],
+    query: { enabled: hasPoller, refetchInterval: 8000 },
+  });
+  const monPrice = monData?.[0]?.result as bigint | undefined;
+  const monAt = monData?.[1]?.result as bigint | undefined;
+  const monPolls = monData?.[2]?.result as bigint | undefined;
+  const monArmed = monData?.[3]?.result as boolean | undefined;
+
   // Operator controls — push the insured below peg / reset it.
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: txMining } = useWaitForTransactionReceipt({ hash: txHash, query: { enabled: !!txHash } });
 
-  const setPrice = (human: string) =>
+  // The poller owns MockPriceOracle once deployed, so operator price writes route through its
+  // passthrough; before the poller exists, write the oracle directly.
+  const setPrice = (human: string) => {
+    const price = parseEther(human);
+    const onSettled = () => setTimeout(() => refetch(), 1500);
+    if (hasPoller) {
+      writeContract({ ...CONTRACTS.poller, functionName: "operatorSetPrice", args: [insured, price] }, { onSettled });
+    } else {
+      writeContract({ ...CONTRACTS.priceOracle, functionName: "setPrice", args: [insured, price] }, { onSettled });
+    }
+  };
+
+  // The issuer pages the investigation reads, parameterized by scenario.
+  const incidentBase = deployment.issuerPageUrl;
+  const socialBase = (deployment as { issuerSocialUrl?: string }).issuerSocialUrl ?? incidentBase;
+  const currentScenario = scenarioOf(cfg?.homepageUrl);
+  const setScenario = (scenario: string) => {
+    if (!cfg) return;
     writeContract(
       {
-        ...CONTRACTS.priceOracle,
-        functionName: "setPrice",
-        args: [insured, parseEther(human)],
+        ...CONTRACTS.registry,
+        functionName: "updateConfig",
+        args: [
+          insured,
+          cfg.pegTarget,
+          cfg.depegThresholdBps,
+          cfg.minDurationSeconds,
+          cfg.annualRateBps,
+          {
+            noPayoutBps: cfg.tiers.noPayoutBps,
+            partialBps: cfg.tiers.partialBps,
+            highBps: cfg.tiers.highBps,
+          },
+          urlWithScenario(incidentBase, scenario),
+          urlWithScenario(socialBase, scenario),
+          urlWithScenario(socialBase, scenario),
+        ],
       },
       { onSettled: () => setTimeout(() => refetch(), 1500) },
     );
+  };
 
   const busy = isPending || txMining;
   const sev = breached ? "warning" : "settled";
@@ -161,6 +248,42 @@ export default function Dashboard() {
                 connect the operator wallet to trigger
               </span>
             )}
+
+            {/* Operator demo control: choose the incident the investigation will classify. */}
+            {isConnected && (
+              <div
+                style={{
+                  flexBasis: "100%",
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  marginTop: 6,
+                }}
+              >
+                <span className="kicker" style={{ color: "var(--off-3)", marginRight: 4 }}>
+                  DEMO CAUSE ·
+                </span>
+                {SCENARIOS.map((s) => {
+                  const active = currentScenario === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      className={`pill${active ? " violet" : ""}`}
+                      onClick={() => setScenario(s.id)}
+                      disabled={busy}
+                      title={`${s.label} → ${s.note}`}
+                      style={{ padding: "8px 14px", fontSize: 11 }}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+                <span className="kicker" style={{ color: "var(--off-3)" }}>
+                  → {SCENARIOS.find((x) => x.id === currentScenario)?.note ?? "pegged"}
+                </span>
+              </div>
+            )}
             {auditEventId && (
               <Link
                 href={`/audit/${auditEventId}`}
@@ -171,6 +294,38 @@ export default function Dashboard() {
               </Link>
             )}
           </div>
+
+          {/* Autonomous live monitor — real USDC peg, fetched on-chain by the keeperless poller. */}
+          {hasPoller && monitor && (
+            <div
+              className="panel"
+              style={{
+                padding: "14px 16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 12,
+                borderColor: "var(--line-d)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span
+                  className={monArmed ? "animate-pulse-dot" : undefined}
+                  style={{ width: 8, height: 8, borderRadius: "50%", background: monArmed ? "var(--green)" : "var(--off-3)" }}
+                />
+                <span className="kicker" style={{ color: "var(--off-2)" }}>
+                  LIVE MONITOR · {monitor.display}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 18, alignItems: "baseline", fontFamily: "var(--mono)", fontSize: 12, color: "var(--off-3)" }}>
+                <span style={{ fontSize: 18, color: "var(--off)" }}>{monPrice && monPrice > 0n ? fmtPrice(monPrice) : "—"}</span>
+                <span>{monAt && monAt > 0n ? `observed ${timeAgo(monAt)}` : "awaiting first poll…"}</span>
+                <span>{(monPolls ?? 0n).toString()} polls</span>
+                <span style={{ color: "var(--off-4)" }}>real price · JSON-API agent · no keeper</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Live pipeline stepper — always shown; resets to MONITORING when the peg is restored. */}

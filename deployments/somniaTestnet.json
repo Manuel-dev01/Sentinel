@@ -11,7 +11,10 @@
   "demoTokenId": "1",
   "demoTokens": {
     "USDC": "1",
-    "USDT": "2"
+    "USDT": "2",
+    "DAI": "3",
+    "FRAX": "4",
+    "USDCL": "5"
   },
   "contracts": {
     "capital": "0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9",
@@ -21,7 +24,8 @@
     "pool": "0x847Bab38C01fA4397E0F1b4F166b9497A7602296",
     "policy": "0x142c36b77868d8b735501BB2b1cDA8f27837643e",
     "treasury": "0x056AA4097aED8887C013Ce953b936c03aEA32FeF",
-    "oracle": "0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c"
+    "oracle": "0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c",
+    "poller": "0xA7831e477794766F5dc3CA90303e0bEB972A48cE"
   },
   "stables": [
     {
@@ -35,6 +39,18 @@
       "symbol": "USDT",
       "name": "Tether USD",
       "annualRateBps": 65
+    },
+    {
+      "address": "0x93C4284AF51A76b2eFf73bA9B7737fa2311E3435",
+      "symbol": "DAI",
+      "name": "Dai Stablecoin",
+      "annualRateBps": 55
+    },
+    {
+      "address": "0x150A14f4F3EbE3E0A85eD6B036d02ED795A6BF33",
+      "symbol": "FRAX",
+      "name": "Frax",
+      "annualRateBps": 70
     }
   ],
   "verify": [
@@ -128,6 +144,56 @@
         "0xE31b784B34f7F986AA2965c33609e15533E0FE7d",
         "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
       ]
+    },
+    {
+      "name": "insured:DAI",
+      "address": "0x93C4284AF51A76b2eFf73bA9B7737fa2311E3435",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "Dai Stablecoin",
+        "DAI",
+        18
+      ]
+    },
+    {
+      "name": "insured:FRAX",
+      "address": "0x150A14f4F3EbE3E0A85eD6B036d02ED795A6BF33",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "Frax",
+        "FRAX",
+        18
+      ]
+    },
+    {
+      "name": "monitorAsset:USDCL",
+      "address": "0xb12BAA2B5b48ED712aB3C06497E8521ea5E2c32F",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "USD Coin (live)",
+        "USDCL",
+        18
+      ]
+    },
+    {
+      "name": "poller",
+      "address": "0xA7831e477794766F5dc3CA90303e0bEB972A48cE",
+      "contract": "src/PriceFeedPoller.sol:PriceFeedPoller",
+      "args": [
+        "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776",
+        "0xE31b784B34f7F986AA2965c33609e15533E0FE7d",
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
+      ]
     }
-  ]
+  ],
+  "monitor": {
+    "poller": "0xA7831e477794766F5dc3CA90303e0bEB972A48cE",
+    "asset": "0xb12BAA2B5b48ED712aB3C06497E8521ea5E2c32F",
+    "symbol": "USDCL",
+    "display": "USDC·live",
+    "policyTokenId": "5",
+    "url": "https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=usd",
+    "selector": "usd-coin.usd",
+    "pollIntervalSeconds": 120
+  }
 }
