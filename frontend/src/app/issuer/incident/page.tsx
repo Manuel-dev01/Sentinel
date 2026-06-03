@@ -66,7 +66,11 @@ function pick(input: string | undefined): Scenario {
   }
 }
 
-export const dynamic = "force-static";
+// Must be dynamic so the `?incident=<scenario>` query param is honored at request time — the
+// operator scenario switch re-points the agent's URL per cause. force-static would prerender one
+// version and ignore the param (every scenario would render the default), which is exactly the bug
+// that made every classification come back SMART_CONTRACT_EXPLOIT.
+export const dynamic = "force-dynamic";
 
 export default async function IssuerIncidentPage({
   searchParams,

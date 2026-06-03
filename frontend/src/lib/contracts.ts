@@ -72,13 +72,34 @@ export type Stable = {
   symbol: string;
   name: string;
   annualRateBps: number;
+  /** Autonomously price-monitored by the live poller (USDC·live) — no operator trigger. */
+  monitored?: boolean;
 };
-export const STABLES: readonly Stable[] = (stables as readonly Stable[]).length
+
+const baseStables: readonly Stable[] = (stables as readonly Stable[]).length
   ? (stables as readonly Stable[])
   : [{ address: CONTRACTS.insured.address, symbol: "USDx", name: "Insured", annualRateBps: 50 }];
 
+/**
+ * All insurable stablecoins shown in the UI: the operator-triggered demo stables plus the
+ * autonomously-monitored USDC·live (real coverage, driven only by the poller — flagged `monitored`
+ * so the dashboard hides the operator Simulate/scenario controls for it).
+ */
+export const STABLES: readonly Stable[] = monitor
+  ? [
+      ...baseStables,
+      {
+        address: monitor.asset,
+        symbol: monitor.display,
+        name: "USD Coin · live (autonomous)",
+        annualRateBps: 50,
+        monitored: true,
+      },
+    ]
+  : baseStables;
+
 /** Default / primary insured stablecoin (the simulate-depeg target). */
-export const INSURED = STABLES[0].address;
+export const INSURED = baseStables[0].address;
 
 // ─────────────────────────── enum mirrors (order is contract-significant) ───────────────────────────
 

@@ -231,58 +231,68 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Operator controls */}
+          {/* Operator controls — hidden for the autonomously-monitored asset (the poller drives it). */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <button
-              className="pill solid"
-              onClick={() => setPrice(process.env.NEXT_PUBLIC_DEPEG_PRICE ?? "0.92")}
-              disabled={!isConnected || busy}
-            >
-              {busy ? "Submitting…" : "Simulate depeg"} <span className="arr">↯</span>
-            </button>
-            <button className="pill" onClick={() => setPrice("1")} disabled={!isConnected || busy}>
-              Reset peg
-            </button>
-            {!isConnected && (
-              <span className="kicker" style={{ color: "var(--off-3)" }}>
-                connect the operator wallet to trigger
+            {selected.monitored ? (
+              <span className="kicker" style={{ color: "var(--off-2)", maxWidth: "60ch" }}>
+                ◇ Autonomously monitored — the live poller reads the real {selected.symbol} price on-chain
+                with no keeper. Coverage on this asset pays out on a <em>genuine</em> depeg; there is no
+                manual trigger.
               </span>
-            )}
+            ) : (
+              <>
+                <button
+                  className="pill solid"
+                  onClick={() => setPrice(process.env.NEXT_PUBLIC_DEPEG_PRICE ?? "0.92")}
+                  disabled={!isConnected || busy}
+                >
+                  {busy ? "Submitting…" : "Simulate depeg"} <span className="arr">↯</span>
+                </button>
+                <button className="pill" onClick={() => setPrice("1")} disabled={!isConnected || busy}>
+                  Reset peg
+                </button>
+                {!isConnected && (
+                  <span className="kicker" style={{ color: "var(--off-3)" }}>
+                    connect the operator wallet to trigger
+                  </span>
+                )}
 
-            {/* Operator demo control: choose the incident the investigation will classify. */}
-            {isConnected && (
-              <div
-                style={{
-                  flexBasis: "100%",
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  marginTop: 6,
-                }}
-              >
-                <span className="kicker" style={{ color: "var(--off-3)", marginRight: 4 }}>
-                  DEMO CAUSE ·
-                </span>
-                {SCENARIOS.map((s) => {
-                  const active = currentScenario === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      className={`pill${active ? " violet" : ""}`}
-                      onClick={() => setScenario(s.id)}
-                      disabled={busy}
-                      title={`${s.label} → ${s.note}`}
-                      style={{ padding: "8px 14px", fontSize: 11 }}
-                    >
-                      {s.label}
-                    </button>
-                  );
-                })}
-                <span className="kicker" style={{ color: "var(--off-3)" }}>
-                  → {SCENARIOS.find((x) => x.id === currentScenario)?.note ?? "pegged"}
-                </span>
-              </div>
+                {/* Operator demo control: choose the incident the investigation will classify. */}
+                {isConnected && (
+                  <div
+                    style={{
+                      flexBasis: "100%",
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      marginTop: 6,
+                    }}
+                  >
+                    <span className="kicker" style={{ color: "var(--off-3)", marginRight: 4 }}>
+                      DEMO CAUSE ·
+                    </span>
+                    {SCENARIOS.map((s) => {
+                      const active = currentScenario === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          className={`pill${active ? " violet" : ""}`}
+                          onClick={() => setScenario(s.id)}
+                          disabled={busy}
+                          title={`${s.label} → ${s.note}`}
+                          style={{ padding: "8px 14px", fontSize: 11 }}
+                        >
+                          {s.label}
+                        </button>
+                      );
+                    })}
+                    <span className="kicker" style={{ color: "var(--off-3)" }}>
+                      → {SCENARIOS.find((x) => x.id === currentScenario)?.note ?? "pegged"}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
             {auditEventId && (
               <Link

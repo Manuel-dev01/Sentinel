@@ -1209,7 +1209,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 @keyframes skelPulse { 50% { opacity: 0.5; } }
 
 /* Generic responsive grid for panels */
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
 .grid-2 > * { border-left: 1px solid var(--line); }
 .grid-2 > *:first-child { border-left: none; }
 @media (max-width: 860px) {

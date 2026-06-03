@@ -77,7 +77,8 @@ function pick(input: string | undefined): Scenario {
   }
 }
 
-export const dynamic = "force-static";
+// Dynamic so `?incident=<scenario>` is honored at request time (see /issuer/incident for why).
+export const dynamic = "force-dynamic";
 
 export default async function IssuerSocialPage({
   searchParams,

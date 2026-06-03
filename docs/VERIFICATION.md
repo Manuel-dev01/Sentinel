@@ -114,6 +114,8 @@ Run **Simulate Depeg** on USDC and watch it advance. It resolves across sequenti
 
 ## T10 · Operator scenario switch (demo any cause)
 
+> **Prerequisite:** the issuer pages must be served **dynamically** so `?incident=<cause>` is honored. They were `force-static` (which ignored the param → every cause classified as exploit); now `force-dynamic`. After deploying the issuer site, `curl …/issuer/incident?incident=bank-run` must return a *bank-run* title, not "Reserve Vault Exploited". If every cause still classifies as exploit, the issuer site wasn't redeployed.
+
 | # | Purpose | Expected | Steps | Gap signal |
 |---|---|---|---|---|
 | 10.1 | DEMO CAUSE control | A row of cause buttons (Exploit / Bank run / Regulatory / Glitch) appears under the operator controls; the current one is highlighted | Connect the operator wallet; look below Simulate/Reset. | No row, or it shows for non-operators. |
@@ -131,7 +133,9 @@ The `PriceFeedPoller` runs a keeperless Reactivity cron that fetches the **real*
 | 11.2 | It's the *real* price | The value is the live CoinGecko USDC price (e.g. `$0.9996`), not exactly $1.0000 | Compare to coingecko.com USDC. | Always exactly `$1.0000` → it's not reading real data. |
 | 11.3 | Keeperless + self-rescheduling | Poll count keeps climbing with nobody clicking; the cron re-arms itself each tick | Verify on-chain: `poller.pollCount()` rises; `poller.cronSubscriptionId()` changes between ticks. | Count frozen → cron stopped (poller out of funds <32 STT → top it up + `arm()`). |
 | 11.4 | Simulate still works (re-pointed) | Simulate/Reset on the 4 demo stables still trigger (now routed through `poller.operatorSetPrice`) | Simulate on USDC as usual. | Simulate reverts → the deployed frontend predates the poller re-point; redeploy it. |
-| 11.5 | (Conceptual) live trigger | A genuine USDC depeg would auto-open an event on USDC·live and pay its policyholder (#5) | Can't force a real depeg; verify the wiring: USDC·live is registered + has a confirm feed + a policy. | — |
+| 11.5 | **USDC·live is buyable** | USDC·live appears in the coverage selector; anyone can buy real coverage on it; its dashboard shows "Autonomously monitored" (no Simulate/DEMO CAUSE) | Select **USDC·live** on `/` → operator controls are hidden. On `/policies` → buy coverage on it like any stable. | Operator controls show for USDC·live, or it's missing from the selector. |
+| 11.6 | Monitor longevity | Runs until the spendable balance above 32 STT is exhausted (~9.8 STT buffer ≈ ~100 polls at 300 s). Re-fuel + re-arm before a demo | If `armed=false` / poll count frozen: `pnpm hardhat run script/tune-monitor.ts --network somniaTestnet` (tops up + re-arms). | — |
+| 11.7 | Real evidence | USDC·live's investigation reads Circle's real status (`status.circle.com`) + USDC page, not the mock issuer | Check `registry.getConfig(USDC·live)` homepageUrl = status.circle.com. | Still points at `sentinel-issuer…/issuer/…`. |
 
 ---
 
