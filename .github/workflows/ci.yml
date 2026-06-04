@@ -19,6 +19,24 @@ jobs:
         with:
           submodules: recursive
 
+      # OpenZeppelin and @somnia-chain are resolved from the root node_modules
+      # (see the remappings in foundry.toml), so the contracts build needs the
+      # npm deps installed, not just Foundry.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install npm deps (OpenZeppelin, Somnia)
+        run: pnpm install --frozen-lockfile
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
