@@ -2,7 +2,9 @@
 pragma solidity 0.8.30;
 
 import { SomniaEventHandler } from "@somnia-chain/reactivity-contracts/contracts/SomniaEventHandler.sol";
-import { SomniaExtensions } from "@somnia-chain/reactivity-contracts/contracts/interfaces/SomniaExtensions.sol";
+import {
+    SomniaExtensions
+} from "@somnia-chain/reactivity-contracts/contracts/interfaces/SomniaExtensions.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IAgentPlatform, IAgentCallback, IJsonApiAgent } from "./interfaces/IAgentPlatform.sol";
 
@@ -174,7 +176,13 @@ contract PriceFeedPoller is SomniaEventHandler, IAgentCallback, Ownable {
     /// @inheritdoc SomniaEventHandler
     /// @dev Fired by the reactivity precompile each tick. MUST NOT revert. Re-arms the next tick, then
     ///      dispatches one JSON-API fetch per feed. Funding-safe.
-    function _onEvent(address, /* emitter */ bytes32[] calldata, /* topics */ bytes calldata /* data */ )
+    function _onEvent(
+        address,
+        /* emitter */
+        bytes32[] calldata,
+        /* topics */
+        bytes calldata /* data */
+    )
         internal
         override
     {
@@ -198,7 +206,9 @@ contract PriceFeedPoller is SomniaEventHandler, IAgentCallback, Ownable {
                 abi.encodeWithSelector(IJsonApiAgent.fetchUint.selector, f.url, f.selector, f.decimals);
             try platform.createRequest{ value: perFetch }(
                 jsonApiAgentId, address(this), IAgentCallback.handleResponse.selector, payload
-            ) returns (uint256 requestId) {
+            ) returns (
+                uint256 requestId
+            ) {
                 _pending[requestId] = i + 1;
                 emit PollDispatched(requestId, f.asset);
             } catch {
@@ -229,7 +239,10 @@ contract PriceFeedPoller is SomniaEventHandler, IAgentCallback, Ownable {
         uint256 price;
         bool got;
         for (uint256 i; i < responses.length; ++i) {
-            if (responses[i].status == IAgentPlatform.ResponseStatus.Success && responses[i].result.length >= 32) {
+            if (
+                responses[i].status == IAgentPlatform.ResponseStatus.Success
+                    && responses[i].result.length >= 32
+            ) {
                 price = abi.decode(responses[i].result, (uint256));
                 got = true;
                 break;

@@ -2,6 +2,12 @@
 CLAUDE.md
 .claude/
 
+# --- Internal/working docs (kept locally, not for the public repo) ---
+docs/DECK_PROMPT.md
+docs/DEMO.md
+docs/demo-run.md
+docs/spike-results.md
+
 # --- Env / secrets ---
 .env
 .env.local
