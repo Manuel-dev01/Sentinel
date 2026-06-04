@@ -14,7 +14,10 @@
     "USDT": "2",
     "DAI": "3",
     "FRAX": "4",
-    "USDCL": "5"
+    "USDCL": "5",
+    "USDTL": "8",
+    "DAIL": "9",
+    "FRAXL": "10"
   },
   "contracts": {
     "capital": "0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9",
@@ -25,7 +28,7 @@
     "policy": "0x142c36b77868d8b735501BB2b1cDA8f27837643e",
     "treasury": "0x056AA4097aED8887C013Ce953b936c03aEA32FeF",
     "oracle": "0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c",
-    "poller": "0xA7831e477794766F5dc3CA90303e0bEB972A48cE"
+    "poller": "0xA12a1285076512B922Fd2B478E0278764a1066B5"
   },
   "stables": [
     {
@@ -184,16 +187,84 @@
         "0xE31b784B34f7F986AA2965c33609e15533E0FE7d",
         "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
       ]
+    },
+    {
+      "name": "liveAsset:USDTL",
+      "address": "0x4F570269fED5250436d088189bB0c19C86f27E96",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "Tether USD (live)",
+        "USDTL",
+        18
+      ]
+    },
+    {
+      "name": "liveAsset:DAIL",
+      "address": "0xbAE3Fa6064fe67D218D8ad31F46e977e8dA1B2d3",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "Dai (live)",
+        "DAIL",
+        18
+      ]
+    },
+    {
+      "name": "liveAsset:FRAXL",
+      "address": "0x832E94079bbED4E4e2017be8328d9f4be8BD3a25",
+      "contract": "src/mocks/MockStable.sol:MockStable",
+      "args": [
+        "Frax (live)",
+        "FRAXL",
+        18
+      ]
+    },
+    {
+      "name": "poller",
+      "address": "0xA12a1285076512B922Fd2B478E0278764a1066B5",
+      "contract": "src/PriceFeedPoller.sol:PriceFeedPoller",
+      "args": [
+        "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776",
+        "0xE31b784B34f7F986AA2965c33609e15533E0FE7d",
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
+      ]
     }
   ],
   "monitor": {
-    "poller": "0xA7831e477794766F5dc3CA90303e0bEB972A48cE",
-    "asset": "0xb12BAA2B5b48ED712aB3C06497E8521ea5E2c32F",
-    "symbol": "USDCL",
-    "display": "USDC·live",
-    "policyTokenId": "5",
-    "url": "https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=usd",
-    "selector": "usd-coin.usd",
-    "pollIntervalSeconds": 120
+    "poller": "0xA12a1285076512B922Fd2B478E0278764a1066B5",
+    "pollIntervalSeconds": 600,
+    "assets": [
+      {
+        "asset": "0xb12BAA2B5b48ED712aB3C06497E8521ea5E2c32F",
+        "symbol": "USDCL",
+        "display": "USDC·live",
+        "policyTokenId": "5",
+        "url": "https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=usd",
+        "selector": "usd-coin.usd"
+      },
+      {
+        "asset": "0x4F570269fED5250436d088189bB0c19C86f27E96",
+        "symbol": "USDTL",
+        "display": "USDT·live",
+        "policyTokenId": "8",
+        "url": "https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=usd",
+        "selector": "tether.usd"
+      },
+      {
+        "asset": "0xbAE3Fa6064fe67D218D8ad31F46e977e8dA1B2d3",
+        "symbol": "DAIL",
+        "display": "DAI·live",
+        "policyTokenId": "9",
+        "url": "https://api.coingecko.com/api/v3/simple/price?ids=dai&vs_currencies=usd",
+        "selector": "dai.usd"
+      },
+      {
+        "asset": "0x832E94079bbED4E4e2017be8328d9f4be8BD3a25",
+        "symbol": "FRAXL",
+        "display": "FRAX·live",
+        "policyTokenId": "10",
+        "url": "https://api.coingecko.com/api/v3/simple/price?ids=frax&vs_currencies=usd",
+        "selector": "frax.usd"
+      }
+    ]
   }
 }

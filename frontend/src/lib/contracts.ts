@@ -52,19 +52,27 @@ export const CONTRACTS = {
 
 export { chainId, deployment };
 
-/** Autonomous-monitor metadata (the USDC·live asset + poller), or null if not deployed. */
-export const monitor = (deployment as { monitor?: MonitorInfo | null }).monitor ?? null;
-export type MonitorInfo = {
-  poller: `0x${string}`;
+/** One autonomously-monitored live asset (real price + real two-source investigation). */
+export type MonitorAsset = {
   asset: `0x${string}`;
   symbol: string;
-  display: string;
+  display: string; // e.g. "USDC·live"
   policyTokenId: string;
   url: string;
   selector: string;
-  pollIntervalSeconds: number;
 };
-export const hasPoller = monitor !== null && CONTRACTS.poller.address !== "0x0000000000000000000000000000000000000000";
+/** Autonomous-monitor metadata (the multi-asset poller + the live assets it polls), or null. */
+export type MonitorInfo = {
+  poller: `0x${string}`;
+  pollIntervalSeconds: number;
+  assets: readonly MonitorAsset[];
+};
+export const monitor = (deployment as { monitor?: MonitorInfo | null }).monitor ?? null;
+export const monitorAssets: readonly MonitorAsset[] = monitor?.assets ?? [];
+export const hasPoller =
+  !!monitor &&
+  monitorAssets.length > 0 &&
+  CONTRACTS.poller.address !== "0x0000000000000000000000000000000000000000";
 
 /** Insured stablecoins registered at deploy time (synced by gen-frontend.mjs from the artifact). */
 export type Stable = {
@@ -85,18 +93,16 @@ const baseStables: readonly Stable[] = (stables as readonly Stable[]).length
  * autonomously-monitored USDC·live (real coverage, driven only by the poller — flagged `monitored`
  * so the dashboard hides the operator Simulate/scenario controls for it).
  */
-export const STABLES: readonly Stable[] = monitor
-  ? [
-      ...baseStables,
-      {
-        address: monitor.asset,
-        symbol: monitor.display,
-        name: "USD Coin · live (autonomous)",
-        annualRateBps: 50,
-        monitored: true,
-      },
-    ]
-  : baseStables;
+export const STABLES: readonly Stable[] = [
+  ...baseStables,
+  ...monitorAssets.map((a) => ({
+    address: a.asset,
+    symbol: a.display,
+    name: `${a.display} (autonomous)`,
+    annualRateBps: 50,
+    monitored: true,
+  })),
+];
 
 /** Default / primary insured stablecoin (the simulate-depeg target). */
 export const INSURED = baseStables[0].address;

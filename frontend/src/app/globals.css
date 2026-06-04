@@ -209,6 +209,21 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .dark .stable-tab { color: var(--off); border-right-color: var(--off-4); }
 .dark .stable-tab.active { background: var(--violet); border-color: var(--violet); color: #fff; }
 
+/* grouped selector: DEMO (operator) vs LIVE (autonomous, real) */
+.stable-groups { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+.stable-group { display: flex; align-items: center; gap: 8px; }
+.stable-group-label {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.dark .stable-group-label { color: var(--off-3); }
+.stable-live-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+  display: inline-block; margin-right: 6px; vertical-align: middle;
+}
+.stable-tab.live.active { background: var(--violet); color: #fff; }
+.stable-tab.live.active .stable-live-dot { background: #fff; }
+
 /* serif accent ------------------------------------------------ */
 .ed { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--violet);
   text-transform: none; letter-spacing: -0.01em; }

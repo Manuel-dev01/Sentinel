@@ -48,26 +48,45 @@ export function useStable(): StableCtxValue {
   return ctx;
 }
 
-/** Segmented control to switch the active insured stablecoin. Hidden when only one is registered. */
+/**
+ * Stablecoin selector, grouped into DEMO (operator-simulated) and LIVE (autonomously monitored,
+ * real coverage). Hidden when only one is registered.
+ */
 export function StableSelector() {
   const { stables, selected, setSelected } = useStable();
   if (stables.length <= 1) return null;
+  const demo = stables.filter((s) => !s.monitored);
+  const live = stables.filter((s) => s.monitored);
+
+  const group = (label: string, list: Stable[], isLive: boolean) =>
+    list.length === 0 ? null : (
+      <div className="stable-group">
+        <span className="stable-group-label">{label}</span>
+        <div className="stable-tabs" role="tablist" aria-label={`${label} stablecoins`}>
+          {list.map((s) => {
+            const active = s.address.toLowerCase() === selected.address.toLowerCase();
+            return (
+              <button
+                key={s.address}
+                role="tab"
+                aria-selected={active}
+                className={`stable-tab${active ? " active" : ""}${isLive ? " live" : ""}`}
+                onClick={() => setSelected(s.address)}
+                title={isLive ? `${s.symbol} — autonomously monitored, real coverage` : s.symbol}
+              >
+                {isLive && <span className="stable-live-dot" />}
+                {isLive ? s.symbol.replace("·live", "") : s.symbol}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+
   return (
-    <div className="stable-tabs" role="tablist" aria-label="Insured stablecoin">
-      {stables.map((s) => {
-        const active = s.address.toLowerCase() === selected.address.toLowerCase();
-        return (
-          <button
-            key={s.address}
-            role="tab"
-            aria-selected={active}
-            className={`stable-tab${active ? " active" : ""}`}
-            onClick={() => setSelected(s.address)}
-          >
-            {s.symbol}
-          </button>
-        );
-      })}
+    <div className="stable-groups">
+      {group("DEMO", demo, false)}
+      {group("LIVE", live, true)}
     </div>
   );
 }

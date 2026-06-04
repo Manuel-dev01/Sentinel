@@ -9,7 +9,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { CONTRACTS, EVENT_STATE, deployment, monitor, hasPoller } from "@/lib/contracts";
+import { CONTRACTS, EVENT_STATE, deployment, monitorAssets, hasPoller } from "@/lib/contracts";
 import { useStable, StableSelector } from "@/lib/stables";
 import { fmtPrice, fmtCompact, fmtBpsPct, deviationBps, timeAgo } from "@/lib/format";
 
@@ -118,22 +118,27 @@ export default function Dashboard() {
   const monitoring = !inFlight && !breached;
   const displayState = monitoring ? 0 : (eventState ?? 0);
 
-  // Autonomous live monitor (the poller's on-chain price observations of the real USDC peg).
+  // Autonomous live monitor: the multi-asset poller's on-chain observations of each real peg.
   const { data: monData } = useReadContracts({
     contracts: hasPoller
       ? [
-          { ...CONTRACTS.poller, functionName: "lastObservedPrice" },
-          { ...CONTRACTS.poller, functionName: "lastObservedAt" },
           { ...CONTRACTS.poller, functionName: "pollCount" },
           { ...CONTRACTS.poller, functionName: "armed" },
+          ...monitorAssets.flatMap((a) => [
+            { ...CONTRACTS.poller, functionName: "lastObservedPrice", args: [a.asset] },
+            { ...CONTRACTS.poller, functionName: "lastObservedAt", args: [a.asset] },
+          ]),
         ]
       : [],
     query: { enabled: hasPoller, refetchInterval: 8000 },
   });
-  const monPrice = monData?.[0]?.result as bigint | undefined;
-  const monAt = monData?.[1]?.result as bigint | undefined;
-  const monPolls = monData?.[2]?.result as bigint | undefined;
-  const monArmed = monData?.[3]?.result as boolean | undefined;
+  const monPolls = monData?.[0]?.result as bigint | undefined;
+  const monArmed = monData?.[1]?.result as boolean | undefined;
+  const monObs = monitorAssets.map((a, i) => ({
+    ...a,
+    price: monData?.[2 + i * 2]?.result as bigint | undefined,
+    at: monData?.[2 + i * 2 + 1]?.result as bigint | undefined,
+  }));
 
   // Operator controls — push the insured below peg / reset it.
   const { writeContract, data: txHash, isPending } = useWriteContract();
@@ -234,11 +239,18 @@ export default function Dashboard() {
           {/* Operator controls — hidden for the autonomously-monitored asset (the poller drives it). */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             {selected.monitored ? (
-              <span className="kicker" style={{ color: "var(--off-2)", maxWidth: "60ch" }}>
-                ◇ Autonomously monitored — the live poller reads the real {selected.symbol} price on-chain
-                with no keeper. Coverage on this asset pays out on a <em>genuine</em> depeg; there is no
-                manual trigger.
-              </span>
+              <div style={{ flexBasis: "100%", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <span
+                  className="animate-pulse-dot"
+                  style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", marginTop: 6, flexShrink: 0 }}
+                />
+                <p style={{ fontFamily: "var(--mono)", fontSize: 12.5, lineHeight: 1.6, color: "var(--off-2)", maxWidth: "68ch", margin: 0 }}>
+                  <b style={{ color: "var(--off)" }}>Autonomously monitored.</b> The live poller reads the real{" "}
+                  {selected.symbol} price on-chain every cycle — no keeper, no operator. Coverage here pays out on a{" "}
+                  <span style={{ fontFamily: "var(--serif)", fontStyle: "italic" }}>genuine</span> depeg, detected and
+                  settled with no manual trigger.
+                </p>
+              </div>
             ) : (
               <>
                 <button
@@ -305,34 +317,33 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Autonomous live monitor — real USDC peg, fetched on-chain by the keeperless poller. */}
-          {hasPoller && monitor && (
-            <div
-              className="panel"
-              style={{
-                padding: "14px 16px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 12,
-                borderColor: "var(--line-d)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span
-                  className={monArmed ? "animate-pulse-dot" : undefined}
-                  style={{ width: 8, height: 8, borderRadius: "50%", background: monArmed ? "var(--green)" : "var(--off-3)" }}
-                />
-                <span className="kicker" style={{ color: "var(--off-2)" }}>
-                  LIVE MONITOR · {monitor.display}
+          {/* Autonomous live monitor — every real peg, fetched on-chain by the keeperless poller. */}
+          {hasPoller && (
+            <div className="panel" style={{ padding: "14px 16px", display: "grid", gap: 12, borderColor: "var(--line-d)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span
+                    className={monArmed ? "animate-pulse-dot" : undefined}
+                    style={{ width: 8, height: 8, borderRadius: "50%", background: monArmed ? "var(--green)" : "var(--off-3)" }}
+                  />
+                  <span className="kicker" style={{ color: "var(--off-2)" }}>LIVE MONITOR · REAL PEGS, ON-CHAIN</span>
+                </div>
+                <span className="kicker" style={{ color: "var(--off-4)" }}>
+                  {(monPolls ?? 0n).toString()} polls · no keeper
                 </span>
               </div>
-              <div style={{ display: "flex", gap: 18, alignItems: "baseline", fontFamily: "var(--mono)", fontSize: 12, color: "var(--off-3)" }}>
-                <span style={{ fontSize: 18, color: "var(--off)" }}>{monPrice && monPrice > 0n ? fmtPrice(monPrice) : "—"}</span>
-                <span>{monAt && monAt > 0n ? `observed ${timeAgo(monAt)}` : "awaiting first poll…"}</span>
-                <span>{(monPolls ?? 0n).toString()} polls</span>
-                <span style={{ color: "var(--off-4)" }}>real price · JSON-API agent · no keeper</span>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(monObs.length, 4)}, 1fr)`, gap: 10 }}>
+                {monObs.map((o) => (
+                  <div key={o.asset} style={{ display: "grid", gap: 2, fontFamily: "var(--mono)" }}>
+                    <span className="kicker" style={{ color: "var(--off-3)", fontSize: 10 }}>{o.display}</span>
+                    <span style={{ fontSize: 17, color: "var(--off)" }}>
+                      {o.price && o.price > 0n ? fmtPrice(o.price) : "—"}
+                    </span>
+                    <span style={{ fontSize: 10.5, color: "var(--off-4)" }}>
+                      {o.at && o.at > 0n ? `obs. ${timeAgo(o.at)}` : "awaiting poll…"}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
