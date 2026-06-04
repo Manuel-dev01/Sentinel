@@ -7,6 +7,8 @@ docs/DECK_PROMPT.md
 docs/DEMO.md
 docs/demo-run.md
 docs/spike-results.md
+docs/DEMO_SCRIPT.md
+docs/SUBMISSION.md
 
 # --- Env / secrets ---
 .env

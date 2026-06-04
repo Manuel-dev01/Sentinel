@@ -1,14 +1,16 @@
 /**
- * Tune the autonomous monitor on the LIVE deployment (operator ops, no redeploy):
- *   D) Re-point USDC·live's investigation to REAL Circle/USDC sources (so a genuine depeg reads real
- *      evidence instead of the mock issuer pages).
- *   E) Keep the monitor alive: refuel the poller above the 32-STT subscription floor, stretch the poll
- *      interval, and re-arm the cron (it self-disarmed once its spendable buffer ran out).
+ * Keep the autonomous monitor alive (operator op, no redeploy):
+ *   Refuel the multi-asset PriceFeedPoller above the 32-STT subscription-owner floor, set the poll
+ *   interval, and re-arm the cron. The poller self-disarms once its spendable balance above 32 STT
+ *   runs out, so re-run this before a demo or whenever `armed` reads false.
  *
  *   pnpm hardhat run script/tune-monitor.ts --network somniaTestnet
  *
- * Optional env: MONITOR_HOMEPAGE_URL, MONITOR_SOCIAL_URL, POLLER_TOPUP_STT (default 10),
- *               POLL_INTERVAL (default 300).
+ * Optional env: POLLER_TOPUP_STT (default 40), POLL_INTERVAL (default 600).
+ *
+ * The investigation sources for each live asset are set at deploy time (deploy-poller-v2.ts) and
+ * USDC-live is repointed to real Circle sources there, so this script no longer touches registry
+ * config; it is purely the refuel-and-arm keepalive.
  */
 
 import { ethers, network } from "hardhat";
@@ -18,40 +20,20 @@ import * as path from "path";
 
 dotenv.config();
 
-// Real USDC issuer sources (HTML; status.circle.com is where Circle posts peg/reserve incidents).
-const HOMEPAGE = process.env.MONITOR_HOMEPAGE_URL?.trim() || "https://status.circle.com";
-const SOCIAL = process.env.MONITOR_SOCIAL_URL?.trim() || "https://www.circle.com/en/usdc";
-const TOPUP = ethers.parseEther(process.env.POLLER_TOPUP_STT?.trim() || "10");
-const POLL_INTERVAL = Number(process.env.POLL_INTERVAL?.trim() || "300");
+const TOPUP = ethers.parseEther(process.env.POLLER_TOPUP_STT?.trim() || "40");
+const POLL_INTERVAL = Number(process.env.POLL_INTERVAL?.trim() || "600");
+const FLOOR = ethers.parseEther("32"); // SUBSCRIPTION_OWNER_MINIMUM_BALANCE
 
 async function main() {
   const file = path.join(__dirname, "..", "deployments", `${network.name}.json`);
   const dep = JSON.parse(fs.readFileSync(file, "utf8"));
   const mon = dep.monitor;
-  if (!mon) throw new Error("No `monitor` in the deployment artifact — run deploy-poller.ts first.");
+  if (!mon?.poller) throw new Error("No `monitor.poller` in the deployment artifact — run deploy-poller-v2.ts first.");
 
   const [signer] = await ethers.getSigners();
-  const registry = await ethers.getContractAt("SentinelRegistry", dep.contracts.registry);
   const poller = await ethers.getContractAt("PriceFeedPoller", mon.poller);
 
-  console.log("─── D) Re-point USDC·live investigation to real Circle sources ───");
-  const cfg = await registry.getConfig(mon.asset);
-  await (
-    await registry.updateConfig(
-      mon.asset,
-      cfg.pegTarget,
-      cfg.depegThresholdBps,
-      cfg.minDurationSeconds,
-      cfg.annualRateBps,
-      { noPayoutBps: cfg.tiers.noPayoutBps, partialBps: cfg.tiers.partialBps, highBps: cfg.tiers.highBps },
-      HOMEPAGE,
-      SOCIAL,
-      SOCIAL,
-    )
-  ).wait();
-  console.log(`  homepage=${HOMEPAGE}  social=${SOCIAL}\n`);
-
-  console.log("─── E) Refuel + re-arm the poller ───");
+  console.log("─── Refuel + re-arm the multi-asset poller ───");
   const balBefore = await ethers.provider.getBalance(mon.poller);
   await (await signer.sendTransaction({ to: mon.poller, value: TOPUP })).wait();
   const balAfter = await ethers.provider.getBalance(mon.poller);
@@ -60,16 +42,17 @@ async function main() {
   await (await poller.setPollInterval(POLL_INTERVAL)).wait();
   console.log(`  poll interval → ${POLL_INTERVAL}s`);
 
-  const armed = await poller.armed();
-  if (!armed) {
+  if (!(await poller.armed())) {
     await (await poller.arm()).wait();
     console.log(`  re-armed · cron ${(await poller.cronSubscriptionId()).toString()}`);
   } else {
     console.log("  already armed");
   }
+
+  const buffer = balAfter - FLOOR;
   console.log(
     `\nDone. Monitor runs until the spendable balance above 32 STT is exhausted (~${ethers.formatEther(
-      balAfter - ethers.parseEther("32"),
+      buffer,
     )} STT buffer). Re-run before a demo to top up.`,
   );
 }

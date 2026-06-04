@@ -142,7 +142,7 @@ struct StableConfig {
     DeviationTiers tiers;       // tier boundaries for payout scaling
     string  homepageUrl;        // Parse-Website source 1
     string  socialUrl;          // Parse-Website source 2
-    string  repoUrl;
+    string  repoUrl;            // reserved; intentionally unused (a repo adds no depeg signal)
     bool    active;
 }
 

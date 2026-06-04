@@ -84,6 +84,22 @@ export default function Dashboard() {
   const liveEventId = data?.[7]?.result as bigint | undefined;
   const nextEventId = data?.[8]?.result as bigint | undefined;
 
+  // Feature the latest *successful* (Classified, state 4) event for the audit link, so failed or
+  // dismissed events (e.g. a live asset's pre-calibration false positive) never headline the
+  // dashboard. Scan back a bounded window of recent events and take the most recent classified one.
+  const SCAN = 12;
+  const scanIds: bigint[] = [];
+  if (nextEventId && nextEventId > 1n) {
+    for (let id = nextEventId - 1n; id >= 1n && scanIds.length < SCAN; id--) scanIds.push(id);
+  }
+  const { data: scanData } = useReadContracts({
+    contracts: scanIds.map((id) => ({ ...CONTRACTS.oracle, functionName: "getEvent" as const, args: [id] })),
+    query: { enabled: scanIds.length > 0, refetchInterval: REFRESH },
+  });
+  const featuredEventId = scanIds.find(
+    (_, i) => (scanData?.[i]?.result as { state?: number } | undefined)?.state === 4,
+  );
+
   const peg = cfg?.pegTarget ?? parseEther("1");
   const dev = price !== undefined ? deviationBps(price, peg) : undefined;
   const threshold = cfg?.depegThresholdBps ?? 50;
@@ -94,13 +110,13 @@ export default function Dashboard() {
       ? Number((liability * 10000n) / totalAssets)
       : 0;
 
-  // The most recent event (live slot, else the last opened) for the audit link.
+  // Audit link target: an in-flight event for the selected stable takes priority, then the latest
+  // successful classified event, and only as a last resort the global latest (used before any event
+  // has settled). This keeps failed/dismissed events from being the headline a judge lands on.
   const auditEventId =
     liveEventId && liveEventId !== 0n
       ? liveEventId
-      : nextEventId && nextEventId > 1n
-        ? nextEventId - 1n
-        : undefined;
+      : featuredEventId ?? (nextEventId && nextEventId > 1n ? nextEventId - 1n : undefined);
 
   // Follow the current event's state for the live pipeline stepper. Polls faster while in flight.
   const inFlight = !!liveEventId && liveEventId !== 0n;

@@ -21,7 +21,8 @@ The investigation itself is consensus-validated. Independent validators must agr
 | | |
 |---|---|
 | **Demo video** | _to be added_ |
-| **Live dApp** | _to be added_ |
+| **Live demo** (landing) | [sentinel--page.vercel.app](https://sentinel--page.vercel.app/) — click **Launch desk** to open the dashboard |
+| **Live dApp** (desk) | [sentinel-issuer.vercel.app](https://sentinel-issuer.vercel.app) |
 | **Mock issuer site** (agent target) | [sentinel-issuer.vercel.app](https://sentinel-issuer.vercel.app) · [`/issuer/incident`](https://sentinel-issuer.vercel.app/issuer/incident) · [`/issuer/social`](https://sentinel-issuer.vercel.app/issuer/social) · [`/api/peg-status`](https://sentinel-issuer.vercel.app/api/peg-status) |
 | **Verified Oracle** (Shannon Explorer) | [`0xe6d838c0…a91c`](https://shannon-explorer.somnia.network/address/0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c) |
 | **Docs** | [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Verification plan](docs/VERIFICATION.md) |
@@ -219,7 +220,6 @@ docs/           ARCHITECTURE, SECURITY, VERIFICATION
 
 - Risk-priced premiums per stablecoin and a real actuarial model.
 - A partner integration to underwrite a Somnia-native stablecoin's own depeg coverage.
-- A third investigation source from issuer GitHub activity, for which `repoUrl` is already stored.
 - Cross-chain coverage and deposits through LI.FI on mainnet.
 - A security audit and a managed upgrade path.
 
