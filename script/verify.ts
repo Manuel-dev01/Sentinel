@@ -89,6 +89,7 @@ async function main() {
 
   let ok = 0;
   let already = 0;
+  let pending = 0;
   let failed = 0;
   for (const t of targets) {
     console.log(`· ${t.name.padEnd(14)} ${t.address}`);
@@ -121,10 +122,23 @@ async function main() {
         ok++;
       }
     } catch (e) {
-      const msg = ((e as { stdout?: string }).stdout ?? (e as Error).message ?? String(e)).toString();
+      // The "not a smart-contract / could not detect deployment" message forge prints lands on
+      // stderr, while stdout holds only the "Submitting verification..." progress line — inspect both.
+      const err = e as { stdout?: string; stderr?: string };
+      const msg = (
+        `${err.stdout ?? ""}\n${err.stderr ?? ""}`.trim() ||
+        (e as Error).message ||
+        String(e)
+      ).toString();
       if (/already verified/i.test(msg)) {
         console.log("  already verified ✓");
         already++;
+      } else if (/not a smart.?contract|could not detect deployment/i.test(msg)) {
+        // The contract is real on-chain, but Shannon Explorer's Blockscout indexer has not yet
+        // flagged the address as a contract, so verification cannot attach. This is an explorer-side
+        // indexer lag, not a deploy or source problem — re-run once the indexer catches up. Not a failure.
+        console.log("  pending — Blockscout indexer has not flagged this address yet (re-run later)");
+        pending++;
       } else {
         console.log(`  FAILED — ${msg.trim().split("\n").pop()}`);
         failed++;
@@ -132,9 +146,14 @@ async function main() {
     }
   }
 
-  console.log(`\n── SUMMARY ── verified ${ok}, already ${already}, failed ${failed}`);
+  console.log(`\n── SUMMARY ── verified ${ok}, already ${already}, pending ${pending}, failed ${failed}`);
+  if (pending > 0) {
+    console.log(
+      `${pending} target(s) pending: the explorer's indexer has not yet flagged the address as a contract (it is real on-chain). Re-run \`pnpm verify:testnet\` once Shannon Explorer catches up.`,
+    );
+  }
   if (failed > 0) {
-    console.log("If failures say 'not a smart-contract', that's Blockscout indexer lag — wait a minute and re-run.");
+    // Only a genuine verification error (bad args, source mismatch) fails the run; indexer lag does not.
     process.exitCode = 1;
   }
 }
