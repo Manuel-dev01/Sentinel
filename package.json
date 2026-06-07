@@ -13,12 +13,15 @@
     "verify:testnet": "hardhat run script/verify.ts --network somniaTestnet",
     "gen:frontend": "node script/gen-frontend.mjs",
     "simulate:depeg": "hardhat run script/simulate-depeg.ts --network somniaTestnet",
+    "health:poller": "hardhat run script/health-check.ts --network somniaTestnet",
+    "health:poller:fix": "cross-env AUTO_FIX=true hardhat run script/health-check.ts --network somniaTestnet",
     "spike:fire": "hardhat run script/spike.ts --network somniaTestnet",
     "spike:reactivity": "hardhat run script/spike-reactivity.ts --network somniaTestnet"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@types/node": "^20.11.0",
+    "cross-env": "^10.1.0",
     "dotenv": "^16.4.5",
     "hardhat": "^2.22.0",
     "ts-node": "^10.9.2",
@@ -29,6 +32,9 @@
     "@somnia-chain/reactivity-contracts": "latest"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["keccak", "secp256k1"]
+    "onlyBuiltDependencies": [
+      "keccak",
+      "secp256k1"
+    ]
   }
 }
