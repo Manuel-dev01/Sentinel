@@ -68,7 +68,7 @@ See [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) and the test suite. Coverage speci
 ## 5. Limitations and out of scope (prototype)
 
 - **Unaudited.** There is no formal verification or third-party audit.
-- **LLM determinism** under consensus is assumed, not proven. If validators diverge on a classification, the event fails closed and becomes stuck, which is a liveness cost, not a safety hole.
+- **LLM determinism** under consensus was proven empirically in the spike (both validators returned byte-identical tokens via `inferString` with `allowedValues` and `chainOfThought=false`), but the model or platform could regress. If validators diverge on a classification, the event fails closed and becomes stuck, which is a liveness cost, not a safety hole.
 - **Simplified risk pricing** in this prototype.
 - **No legal or regulatory structuring.** The product is framed as a smart-contract risk pool, not a regulated insurance product.
 - **The mock oracle and mock issuer pages** are demo scaffolding, not production data sources. The live assets read real price feeds and real issuer sources, but that scrape is best-effort.

@@ -1,14 +1,15 @@
 /**
- * M6 — Demo trigger. Pushes USDC below its peg and watches the autonomous pipeline run
+ * Demo trigger. Pushes a demo stable below its peg and watches the autonomous pipeline run
  * to SETTLED, then settles the demo policy and prints the timeline.
  *
  * Flow:
- *   1. setPrice(USDC, depegPrice) on MockPriceOracle  -> emits PriceUpdated.
+ *   1. setPrice(asset, depegPrice) on MockPriceOracle (via poller.operatorSetPrice) -> emits PriceUpdated.
  *   2. Somnia Reactivity invokes SentinelOracle._onEvent (no keeper) -> event opens (Confirming).
- *   3. Agent #1 JSON-API confirms the basket -> Investigating.
- *   4. Agent #2 Parse Website reads the issuer page -> Classifying.
- *   5. Agent #3 LLM Inference classifies -> Classified + treasury.recordVerdict.
- *   6. We call treasury.settle(eventId, tokenId): exploit pays 100% immediately.
+ *   3. Agent #1 JSON-API confirms the basket (3/3) -> Investigating.
+ *   4. Agent #2a Parse-Website reads the issuer homepage (2/3) -> still Investigating.
+ *   5. Agent #2b Parse-Website reads the issuer status feed (2/3) -> Classifying.
+ *   6. Agent #3 LLM Inference classifies (3/3) -> Classified + treasury.recordVerdict.
+ *   7. We call treasury.settle(eventId, tokenId): exploit pays 100% immediately.
  *
  * Polls CONTRACT VIEW STATE (oracle.getEvent / liveEventOf), not eth_getLogs (Somnia caps
  * getLogs at 1000 blocks). Reads addresses from deployments/<network>.json (deploy.ts output).

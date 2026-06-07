@@ -182,7 +182,7 @@ pnpm simulate:depeg            # push a stable below peg, watch the pipeline set
 cd frontend && pnpm build && pnpm start   # run the dApp (next dev OOMs on low-memory hosts)
 ```
 
-You will need Somnia testnet tokens from the [faucet](https://testnet.somnia.network/). The Oracle holds at least 32 STT to own its Reactivity subscription, plus a budget for agent-request deposits.
+You will need Somnia testnet tokens from the [faucet](https://testnet.somnia.network/). The Oracle holds at least 32 STT to own its Reactivity subscription, plus a budget for agent-request deposits. The PriceFeedPoller also needs at least 32 STT for its own subscription; if live price polling stops, run `pnpm hardhat run script/fund-poller.ts --network somniaTestnet` to top it up and `pnpm hardhat run script/rearm-poller.ts --network somniaTestnet` to re-arm the cron.
 
 ## Repository structure
 
@@ -209,7 +209,7 @@ docs/           ARCHITECTURE, SECURITY, VERIFICATION
 | Autonomous live monitoring | Done. The keeperless `PriceFeedPoller` observes the real USDC, USDT, DAI, and FRAX pegs on-chain, and a genuine depeg auto-fires the pipeline. |
 | Two-source investigation | Done. The issuer disclosure and the status feed are read across sequential Parse-Website stages. |
 | APY analytics | Done. Estimated LP yield from active coverage on `/lp`. |
-| Source verification | Done. All contracts verified on Shannon Explorer through `pnpm verify:testnet`. |
+| Source verification | Done. All contracts verified on Shannon Explorer through `pnpm verify:testnet`. The poller's verification is pending only because Shannon Explorer's Blockscout indexer has not yet flagged the address as a contract. |
 | CI and badges | Done. GitHub Actions with forge and frontend jobs. |
 | Cross-chain deposits (LI.FI) | Deferred to a mainnet phase. LI.FI moves real liquid tokens on mainnet chains and cannot settle into a mock testnet capital token. |
 | Mainnet deploy | Deferred. Unaudited, and testnet-first by design. |
