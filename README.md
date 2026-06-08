@@ -189,23 +189,6 @@ docs/           ARCHITECTURE, SECURITY, VERIFICATION
 
 **MVP, fully shipped:** the full autonomous detect, confirm, investigate, classify, and pay flow with all three agents; the exploit to immediate-payout hero path; LP deposit and withdraw; policy buy and claim; the on-chain audit centerpiece; a deterministic demo; testnet deploy with source verification; and complete docs.
 
-**Stretch:**
-
-| Item | Status |
-|---|---|
-| Full vesting for all causes | Done. `PayoutMath.timing` covers all five causes, and the Treasury executes immediate, vested, and delayed payouts. |
-| Multiple deviation tiers | Done. Three-tier payout scaling, configurable per stable. |
-| Multiple stablecoins | Done. Four demo stables plus four autonomous live assets, all insurable, with a grouped frontend selector. |
-| All payout classes, live | Done. The operator scenario switch re-points the issuer pages so any demo asset can show exploit, bank run, regulatory, or glitch. |
-| Autonomous live monitoring | Done. The keeperless `PriceFeedPoller` observes the real USDC, USDT, DAI, and FRAX pegs on-chain, and a genuine depeg auto-fires the pipeline. |
-| Two-source investigation | Done. The issuer disclosure and the status feed are read across sequential Parse-Website stages. |
-| APY analytics | Done. Estimated LP yield from active coverage on `/lp`. |
-| Source verification | Done. All contracts verified on Shannon Explorer through `pnpm verify:testnet`. The poller's verification is pending only because Shannon Explorer's Blockscout indexer has not yet flagged the address as a contract. |
-| CI and badges | Done. GitHub Actions with forge and frontend jobs. |
-| Cross-chain deposits (LI.FI) | Deferred to a mainnet phase. LI.FI moves real liquid tokens on mainnet chains and cannot settle into a mock testnet capital token. |
-| Mainnet deploy | Deferred. Unaudited, and testnet-first by design. |
-
-**To be submission-complete:** record the demo video and publish the live dApp URL. The mock-issuer site is already deployed and wired.
 
 ## Roadmap (post-hackathon)
 
