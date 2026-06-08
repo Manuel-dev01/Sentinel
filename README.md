@@ -87,15 +87,6 @@ Each of these is a deliberate engineering decision, and most are a direct respon
 
 - **Solvency by construction.** The pool enforces a utilization cap, so it never oversells coverage the capital cannot back. It reserves capital the instant a policy settles, so `paid` stays under or equal to `reserved` both per policy and in aggregate. It also locks LP withdrawals while any insured stable has a live event.
 
-## How this maps to the judging criteria
-
-| Criterion | How Sentinel addresses it |
-|---|---|
-| **Functionality** | Deployed and source-verified on Somnia testnet. The full detect, confirm, investigate, classify, and payout flow runs end-to-end with no manual steps. Four demo stablecoins and four autonomously-monitored live assets are independently insurable. |
-| **Agent-First Design** | Uses all three base agents (JSON API, LLM Parse Website, LLM Inference) in one autonomous chain. The agents decide whether and how much to pay, rather than just automating a transfer. |
-| **Innovation and Technical Creativity** | The first parametric insurer whose claim investigation is itself consensus-validated, across two independent web sources, with a tiered consensus rule and on-chain receipts as the proof artifact. |
-| **Autonomous Performance** | No human in the loop between detection and settlement. A strict state machine handles every agent response status (success, failure, no consensus, timeout) safely and fails closed. |
-
 ## Architecture at a glance
 
 Six contracts plus a Next.js frontend. The contracts turn a price deviation into a justified, consensus-backed payout. The frontend lets policyholders buy coverage, lets LPs provide capital, and lets anyone audit a decision.
