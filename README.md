@@ -24,7 +24,7 @@ The investigation itself is consensus-validated. Independent validators must agr
 | **Live demo** (landing) | [sentinel--page.vercel.app](https://sentinel--page.vercel.app/) — click **Launch desk** to open the dashboard |
 | **Live dApp** (desk) | [sentinel-issuer.vercel.app](https://sentinel-issuer.vercel.app) |
 | **Mock issuer site** (agent target) | [sentinel-issuer.vercel.app](https://sentinel-issuer.vercel.app) · [`/issuer/incident`](https://sentinel-issuer.vercel.app/issuer/incident) · [`/issuer/social`](https://sentinel-issuer.vercel.app/issuer/social) · [`/api/peg-status`](https://sentinel-issuer.vercel.app/api/peg-status) |
-| **Oracle** (Shannon Explorer) | [`0x2D4680c6…24d2`](https://shannon-explorer.somnia.network/address/0x2D4680c64B7bC6EA9484cbA01746c3A1036c24d2) |
+| **Verified Oracle** (Shannon Explorer) | [`0xe6d838c0…a91c`](https://shannon-explorer.somnia.network/address/0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c) |
 | **Docs** | [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Verification plan](docs/VERIFICATION.md) |
 
 ---
@@ -104,7 +104,7 @@ The `libraries/` folder holds `Classification` (the cause enum and strict agent-
 
 ## Deployed and verified addresses (Somnia testnet, chain 50312)
 
-> Deployed on Shannon Explorer, where the core contracts carry the green "Verified" tab with Code, Read, and Write. The Oracle and the price poller are the two most recent deploys, and their verification is pending the explorer's indexer (see the note below the table); both verify with one `pnpm verify:testnet` run once it catches up. The live Oracle runs tiered validator consensus, the two-source investigation, and eight independently insurable assets (four operator-demo stables and four autonomous live assets). Every validator vote is persisted on-chain through `SentinelOracle.getReceipts` and rendered by `/audit`, with no off-chain indexer.
+> Deployed and source-verified on Shannon Explorer, where every contract below carries the green "Verified" tab with Code, Read, and Write. The live Oracle runs tiered validator consensus, the two-source investigation, and eight independently insurable assets (four operator-demo stables and four autonomous live assets). Every validator vote is persisted on-chain through `SentinelOracle.getReceipts` and rendered by `/audit`, with no off-chain indexer.
 >
 > Re-verify any deploy with `pnpm verify:testnet` (forge to Blockscout). Note that Shannon Explorer's indexer flags a fresh address as a contract a few minutes after deploy, and the Code, Read, and Write tabs (and verification) only become available once it does.
 
@@ -114,13 +114,13 @@ The `libraries/` folder holds `Classification` (the cause enum and strict agent-
 | SentinelPool | [`0x847Bab38C01fA4397E0F1b4F166b9497A7602296`](https://shannon-explorer.somnia.network/address/0x847Bab38C01fA4397E0F1b4F166b9497A7602296) |
 | SentinelPolicy | [`0x142c36b77868d8b735501BB2b1cDA8f27837643e`](https://shannon-explorer.somnia.network/address/0x142c36b77868d8b735501BB2b1cDA8f27837643e) |
 | SentinelTreasury | [`0x056AA4097aED8887C013Ce953b936c03aEA32FeF`](https://shannon-explorer.somnia.network/address/0x056AA4097aED8887C013Ce953b936c03aEA32FeF) |
-| SentinelOracle | [`0x2D4680c64B7bC6EA9484cbA01746c3A1036c24d2`](https://shannon-explorer.somnia.network/address/0x2D4680c64B7bC6EA9484cbA01746c3A1036c24d2) |
+| SentinelOracle | [`0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c`](https://shannon-explorer.somnia.network/address/0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c) |
 
 **Demo stables** (operator-simulated, one per payout class): USDC `0x0195df87…8EEF`, USDT `0x573e0382…44a7`, DAI `0x93C4284A…3435`, FRAX `0x150A14f4…BF33`.
 
-**Live assets** (autonomous, real price plus real two-source investigation, buyable): USDC·live [`0xb12BAA2B…c32F`](https://shannon-explorer.somnia.network/address/0xb12BAA2B5b48ED712aB3C06497E8521ea5E2c32F), USDT·live [`0x4F570269…7E96`](https://shannon-explorer.somnia.network/address/0x4F570269fED5250436d088189bB0c19C86f27E96), DAI·live [`0xbAE3Fa60…B2d3`](https://shannon-explorer.somnia.network/address/0xbAE3Fa6064fe67D218D8ad31F46e977e8dA1B2d3), FRAX·live [`0x832E9407…3a25`](https://shannon-explorer.somnia.network/address/0x832E94079bbED4E4e2017be8328d9f4be8BD3a25). All four are polled by the multi-asset **PriceFeedPoller** [`0xA12a1285…66B5`](https://shannon-explorer.somnia.network/address/0xA12a1285076512B922Fd2B478E0278764a1066B5). The poller and the Oracle are live and funded on-chain; their source verification is pending only because Shannon Explorer's indexer is behind and has not yet flagged these newer addresses as contracts. Every other contract above is source-verified, and the Oracle and poller verify with one `pnpm verify:testnet` run once the indexer catches up.
+**Live assets** (autonomous, real price plus real two-source investigation, buyable): USDC·live [`0xb12BAA2B…c32F`](https://shannon-explorer.somnia.network/address/0xb12BAA2B5b48ED712aB3C06497E8521ea5E2c32F), USDT·live [`0x4F570269…7E96`](https://shannon-explorer.somnia.network/address/0x4F570269fED5250436d088189bB0c19C86f27E96), DAI·live [`0xbAE3Fa60…B2d3`](https://shannon-explorer.somnia.network/address/0xbAE3Fa6064fe67D218D8ad31F46e977e8dA1B2d3), FRAX·live [`0x832E9407…3a25`](https://shannon-explorer.somnia.network/address/0x832E94079bbED4E4e2017be8328d9f4be8BD3a25). All four are polled by the multi-asset **PriceFeedPoller** [`0xA12a1285…66B5`](https://shannon-explorer.somnia.network/address/0xA12a1285076512B922Fd2B478E0278764a1066B5). The poller is live and funded on-chain; its source verification is pending only because Shannon Explorer's indexer has not yet flagged the address as a contract. Every other contract above is source-verified.
 
-Scaffolding: CAPITAL/sUSD [`0x88f973BA…Cba9`](https://shannon-explorer.somnia.network/address/0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9), MockPriceOracle [`0xE31b784B…FE7d`](https://shannon-explorer.somnia.network/address/0xE31b784B34f7F986AA2965c33609e15533E0FE7d) (owned by the poller), detection subscription `5977144`.
+Scaffolding: CAPITAL/sUSD [`0x88f973BA…Cba9`](https://shannon-explorer.somnia.network/address/0x88f973BA7dae69474e609c8bc2CfCd159ae3Cba9), MockPriceOracle [`0xE31b784B…FE7d`](https://shannon-explorer.somnia.network/address/0xE31b784B34f7F986AA2965c33609e15533E0FE7d) (owned by the poller), detection subscription `5981499`.
 
 ## Both Somnia primitives, proven on-chain
 

@@ -2,7 +2,7 @@
 
 A feature-by-feature checklist for verifying Sentinel by hand. Each test states its **Purpose**, the **Expected** behavior, the **Steps** to run it, and the **Gap signal** that indicates a problem.
 
-> **Live deployment (chain 50312):** Oracle `0x2D4680c6…24d2`, Registry `0x4190c7Ae…1a89`, Pool `0x847Bab38…2296`, Policy `0x142c36b7…643e`, Treasury `0x056AA409…2FeF`, detection subscription `5977144`. Demo stables: USDC `0x0195df87…8EEF`, USDT `0x573e0382…44a7`, DAI `0x93C4284A…3435`, FRAX `0x150A14f4…BF33`. Multi-asset monitor: PriceFeedPoller `0xA12a1285…66B5`, polling USDC·live, USDT·live, DAI·live, FRAX·live. Mock issuer site: https://sentinel-issuer.vercel.app
+> **Live deployment (chain 50312):** Oracle `0xe6d838c0…a91c`, Registry `0x4190c7Ae…1a89`, Pool `0x847Bab38…2296`, Policy `0x142c36b7…643e`, Treasury `0x056AA409…2FeF`, detection subscription `5981499`. Demo stables: USDC `0x0195df87…8EEF`, USDT `0x573e0382…44a7`, DAI `0x93C4284A…3435`, FRAX `0x150A14f4…BF33`. Multi-asset monitor: PriceFeedPoller `0xA12a1285…66B5`, polling USDC·live, USDT·live, DAI·live, FRAX·live. Mock issuer site: https://sentinel-issuer.vercel.app
 
 > **Two facts to internalize before testing.** First, consensus is tiered. Confirm (price) and Classify (verdict) require 3-of-3 unanimity, and the two Parse-Website investigate stages require a 2-of-3 majority, so a `2/3 CONSENSUS` stamp on an investigate stage is correct, not a failure. Second, timing. The full two-source pipeline takes a few minutes, since the Parse-Website scrapes dominate. The payout is instant once the verdict signs, and the investigation is the slow, deliberate part.
 
@@ -15,7 +15,7 @@ A feature-by-feature checklist for verifying Sentinel by hand. Each test states 
 | 0.1 | Wallet on the right network | MetaMask connects to Somnia testnet (chain 50312, STT) | Add Somnia testnet (RPC `https://api.infra.testnet.somnia.network/`, chain 50312). Open the dApp, click Connect, pick MetaMask. | The modal lists no wallets, indicating a wagmi or RainbowKit mismatch, or a wrong-network banner appears. |
 | 0.2 | Operator account | Connected as the operator `0xBCA6…66Fe` | Confirm the connected address. Only the operator can trigger Simulate, since it writes to the operator-owned price oracle. | A non-operator can move the price, indicating an access-control gap. |
 | 0.3 | Issuer pages live and dynamic | `/issuer/incident`, `/issuer/social`, and `/api/peg-status` all return 200, and `?incident=bank-run` returns a bank-run title | Open each URL, and pre-warm the two HTML pages. Run `curl …/issuer/incident?incident=bank-run`. | Any 404 means the agent cannot read it. If every scenario returns the exploit title, the issuer site was not redeployed with the dynamic pages. |
-| 0.4 | Oracle funded and armed | The Oracle holds at least 32 STT and owns subscription `5977144` | On Shannon Explorer, open the Oracle address and check the balance. | A balance under 32 STT means detection may stop firing. |
+| 0.4 | Oracle funded and armed | The Oracle holds at least 32 STT and owns subscription `5981499` | On Shannon Explorer, open the Oracle address and check the balance. | A balance under 32 STT means detection may stop firing. |
 
 ## T1. On-chain credibility (the explorer)
 

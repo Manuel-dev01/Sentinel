@@ -5,7 +5,7 @@ export const chainId = 50312 as const;
 
 export const deployment = {
   "chainId": 50312,
-  "subscriptionId": "5977144",
+  "subscriptionId": "5981499",
   "demoTokenId": "1",
   "issuerJsonUrl": "https://sentinel-issuer.vercel.app/api/peg-status",
   "issuerPageUrl": "https://sentinel-issuer.vercel.app/issuer/incident",
@@ -58,7 +58,7 @@ export const addresses = {
   "pool": "0x847Bab38C01fA4397E0F1b4F166b9497A7602296",
   "policy": "0x142c36b77868d8b735501BB2b1cDA8f27837643e",
   "treasury": "0x056AA4097aED8887C013Ce953b936c03aEA32FeF",
-  "oracle": "0x2D4680c64B7bC6EA9484cbA01746c3A1036c24d2",
+  "oracle": "0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c",
   "poller": "0xA12a1285076512B922Fd2B478E0278764a1066B5"
 } as const;
 
