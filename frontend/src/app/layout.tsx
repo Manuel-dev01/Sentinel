@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Anton, Newsreader, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { PaperGrain } from "@/components/PaperGrain";
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             {children}
           </main>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
