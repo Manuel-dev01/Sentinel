@@ -7,7 +7,7 @@
   "issuerJsonUrl": "https://sentinel-issuer.vercel.app/api/peg-status",
   "issuerPageUrl": "https://sentinel-issuer.vercel.app/issuer/incident",
   "issuerSocialUrl": "https://sentinel-issuer.vercel.app/issuer/social",
-  "subscriptionId": "3711687",
+  "subscriptionId": "5977144",
   "demoTokenId": "1",
   "demoTokens": {
     "USDC": "1",
@@ -27,7 +27,7 @@
     "pool": "0x847Bab38C01fA4397E0F1b4F166b9497A7602296",
     "policy": "0x142c36b77868d8b735501BB2b1cDA8f27837643e",
     "treasury": "0x056AA4097aED8887C013Ce953b936c03aEA32FeF",
-    "oracle": "0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c",
+    "oracle": "0x2D4680c64B7bC6EA9484cbA01746c3A1036c24d2",
     "poller": "0xA12a1285076512B922Fd2B478E0278764a1066B5"
   },
   "stables": [
@@ -137,18 +137,6 @@
       ]
     },
     {
-      "name": "oracle",
-      "address": "0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c",
-      "contract": "src/SentinelOracle.sol:SentinelOracle",
-      "args": [
-        "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776",
-        "0x4190c7Aee1e3e7FD482C3a019441e0Bb3b601a89",
-        "0x056AA4097aED8887C013Ce953b936c03aEA32FeF",
-        "0xE31b784B34f7F986AA2965c33609e15533E0FE7d",
-        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
-      ]
-    },
-    {
       "name": "insured:DAI",
       "address": "0x93C4284AF51A76b2eFf73bA9B7737fa2311E3435",
       "contract": "src/mocks/MockStable.sol:MockStable",
@@ -214,6 +202,18 @@
       "contract": "src/PriceFeedPoller.sol:PriceFeedPoller",
       "args": [
         "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776",
+        "0xE31b784B34f7F986AA2965c33609e15533E0FE7d",
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
+      ]
+    },
+    {
+      "name": "oracle",
+      "address": "0x2D4680c64B7bC6EA9484cbA01746c3A1036c24d2",
+      "contract": "src/SentinelOracle.sol:SentinelOracle",
+      "args": [
+        "0x037Bb9C718F3f7fe5eCBDB0b600D607b52706776",
+        "0x4190c7Aee1e3e7FD482C3a019441e0Bb3b601a89",
+        "0x056AA4097aED8887C013Ce953b936c03aEA32FeF",
         "0xE31b784B34f7F986AA2965c33609e15533E0FE7d",
         "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
       ]

@@ -490,17 +490,19 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
             );
         }
 
-        if (status != IAgentPlatform.ResponseStatus.Success) {
-            _fail(ctx.eventId, e);
-            emit StageFailed(ctx.eventId, requestId, ctx.stage, status);
-            return;
-        }
-
+        // Decide on the on-chain re-check of the actual validator responses, NOT the platform's overall
+        // status label. The platform reports TimedOut/Failed whenever fewer than the full subcommittee
+        // complete — which, for the majority-threshold Parse-Website investigate stages, happens
+        // routinely even when the 2-of-3 quorum agrees byte-for-byte (the 3rd validator is simply absent
+        // within the timeout). Gating on `status` here discarded that valid majority consensus and failed
+        // the event mid-investigation. `_consensusResult` enforces the per-stage required count (3/3 for
+        // the payout-gating Confirm/Classify, 2-of-3 for the investigate stages), so an insufficient or
+        // genuinely-failed request still yields an empty result and parks the event. This is the trustless
+        // gate: never trust the platform's report or responses[0] — re-derive agreement from the votes.
         bytes memory consensus = _consensusResult(responses, _requiredFor(ctx.stage));
         if (consensus.length == 0) {
-            // Overall-Success but no usable agreed payload — treat as a failure rather than decode-revert.
             _fail(ctx.eventId, e);
-            emit StageFailed(ctx.eventId, requestId, ctx.stage, IAgentPlatform.ResponseStatus.Failed);
+            emit StageFailed(ctx.eventId, requestId, ctx.stage, status);
             return;
         }
 

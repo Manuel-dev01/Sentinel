@@ -405,6 +405,48 @@ contract SentinelOracleTest is Test {
         assertEq(uint8(rs[9].stage), uint8(SentinelOracle.Stage.Classify));
     }
 
+    /// @notice Regression for the M-15 investigate stall: an investigate stage where only 2 of 3
+    ///         validators respond (byte-identical Success) but the platform reports the request as
+    ///         TimedOut must STILL advance, because the investigate stage only requires a 2-of-3
+    ///         majority. The callback must re-derive consensus from the votes, not trust the status.
+    function test_investigate_advances_on_majority_despite_timedout_status() public {
+        address two = makeAddr("MAJx");
+        vm.startPrank(operator);
+        registry.registerStable(
+            two, WAD, THRESHOLD_BPS, MIN_DURATION, 50, tiers, "https://home.example", "https://social.example", "r"
+        );
+        oracle.setConfirmFeed(two, "https://basket.example/price", "price", 18);
+        vm.stopPrank();
+
+        _emit(two, 0.98e18); // confirm = req 1
+        uint256 eventId = oracle.nextEventId() - 1;
+        platform.deliverUnanimous(1, abi.encode(uint256(0.94e18))); // → investigate (req 2)
+        assertEq(uint8(oracle.getEvent(eventId).state), uint8(SentinelOracle.EventState.Investigating));
+
+        // Only 2 validators muster on the homepage scrape, and the platform reports TimedOut. The
+        // majority agrees byte-for-byte, so the stage must advance to the 2nd source — not fail.
+        platform.deliverMajorityTimedOut(2, abi.encode("Homepage: regulatory enforcement action."));
+        SentinelOracle.DepegEvent memory e = oracle.getEvent(eventId);
+        assertEq(
+            uint8(e.state), uint8(SentinelOracle.EventState.Investigating), "advances to 2nd source on 2/3 majority"
+        );
+        assertEq(e.disclosure, "Homepage: regulatory enforcement action.");
+
+        // Same again on the 2nd source: 2-of-3 TimedOut majority → proceed to classify.
+        platform.deliverMajorityTimedOut(3, abi.encode("Social: regulator confirms enforcement."));
+        e = oracle.getEvent(eventId);
+        assertEq(uint8(e.state), uint8(SentinelOracle.EventState.Classifying), "advances to classify");
+        assertEq(e.disclosure2, "Social: regulator confirms enforcement.");
+
+        // Classify is payout-gating: a 2/3 TimedOut there must NOT settle (needs 3/3).
+        platform.deliverMajorityTimedOut(4, abi.encode("REGULATORY"));
+        assertEq(
+            uint8(oracle.getEvent(eventId).state),
+            uint8(SentinelOracle.EventState.Failed),
+            "classify still requires 3/3 unanimity"
+        );
+    }
+
     // ──────────────────────── callback access control & robustness ────────────────────────
 
     function test_handleResponse_only_platform() public {

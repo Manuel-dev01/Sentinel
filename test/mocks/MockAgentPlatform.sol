@@ -101,6 +101,18 @@ contract MockAgentPlatform is IAgentPlatform {
         _deliver(requestId, rs, IAgentPlatform.ResponseStatus.Success);
     }
 
+    /// @notice Deliver a 2-of-3 byte-identical Success majority but with an overall non-Success status:
+    ///         the 3rd validator never completed within the timeout, so the platform labels the whole
+    ///         request `TimedOut` even though a valid majority agreed. This is the real Parse-Website
+    ///         "2 of 3 muster" case (CLAUDE.md §8); the Oracle must accept it for the majority investigate
+    ///         stages by re-deriving consensus from the votes rather than trusting the status label.
+    function deliverMajorityTimedOut(uint256 requestId, bytes memory agreed) external {
+        IAgentPlatform.Response[] memory rs = new IAgentPlatform.Response[](2);
+        rs[0] = _r(address(0xA11CE), agreed, IAgentPlatform.ResponseStatus.Success);
+        rs[1] = _r(address(0xB0B), agreed, IAgentPlatform.ResponseStatus.Success);
+        _deliver(requestId, rs, IAgentPlatform.ResponseStatus.TimedOut);
+    }
+
     /// @notice Deliver an overall-Failed outcome (e.g. all validators failed). Per-response status Failed.
     function deliverFailed(uint256 requestId) external {
         IAgentPlatform.Response[] memory rs = new IAgentPlatform.Response[](3);
