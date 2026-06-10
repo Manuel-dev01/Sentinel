@@ -422,7 +422,7 @@ export default function Dashboard() {
         <div className="stat">
           <div className="s-no">[ BOOK ]</div>
           <div className="s-val tnum">{policyCount}</div>
-          <div className="s-lbl">Active policies</div>
+          <div className="s-lbl">Active policies · protocol-wide</div>
         </div>
       </section>
 

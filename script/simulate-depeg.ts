@@ -77,10 +77,16 @@ async function main() {
   console.log(`Demo policy:    #${tokenId.toString()}\n`);
 
   const priceOracle = await ethers.getContractAt("MockPriceOracle", c.priceOracle);
-  // Once the poller is deployed it OWNS MockPriceOracle, so operator price writes route through it.
+  // Price writes route through whatever currently controls the feed: SimGateway (public `simulate`,
+  // owns the poller) once deployed, else the poller's owner-only passthrough, else the bare oracle.
+  const simGateway = c.simGateway ? await ethers.getContractAt("SimGateway", c.simGateway) : null;
   const poller = c.poller ? await ethers.getContractAt("PriceFeedPoller", c.poller) : null;
   const setAssetPrice = (asset: string, price: bigint) =>
-    poller ? poller.operatorSetPrice(asset, price) : priceOracle.setPrice(asset, price);
+    simGateway
+      ? simGateway.simulate(asset, price)
+      : poller
+        ? poller.operatorSetPrice(asset, price)
+        : priceOracle.setPrice(asset, price);
   const oracle = await ethers.getContractAt("SentinelOracle", c.oracle);
   const treasury = await ethers.getContractAt("SentinelTreasury", c.treasury);
   const policy = await ethers.getContractAt("SentinelPolicy", c.policy);

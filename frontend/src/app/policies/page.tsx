@@ -64,21 +64,30 @@ export default function PoliciesPage() {
   const allowance = (meta?.[3]?.result as bigint) ?? 0n;
   const nextEventId = (meta?.[4]?.result as bigint) ?? 1n;
 
-  // The most recent event — used to find a classified verdict to claim against.
-  const lastEventId = nextEventId > 1n ? nextEventId - 1n : 0n;
+  // Find the latest CLASSIFIED event for each stable, so a policy can always claim against its own
+  // stable's event, not only when that event happens to be the most recent one globally. Works the
+  // same for demo and live assets.
+  const SCAN = 16;
+  const scanIds: bigint[] = [];
+  if (nextEventId > 1n) for (let id = nextEventId - 1n; id >= 1n && scanIds.length < SCAN; id--) scanIds.push(id);
   const { data: evData, refetch: refetchEv } = useReadContracts({
-    contracts: [
-      { ...CONTRACTS.oracle, functionName: "getEvent", args: [lastEventId] },
-      { ...CONTRACTS.treasury, functionName: "verdicts", args: [lastEventId] },
-    ],
-    query: { enabled: lastEventId > 0n, refetchInterval: 6000 },
+    contracts: scanIds.flatMap((id) => [
+      { ...CONTRACTS.oracle, functionName: "getEvent" as const, args: [id] },
+      { ...CONTRACTS.treasury, functionName: "verdicts" as const, args: [id] },
+    ]),
+    query: { enabled: scanIds.length > 0, refetchInterval: 6000 },
   });
-  const lastEvent = evData?.[0]?.result as { state: number; stable: `0x${string}` } | undefined;
-  const verdict = evData?.[1]?.result as readonly [string, number, bigint, bigint, boolean] | undefined;
-  // A claimable event exists when the last event is Classified for our insured stable + verdict recorded.
-  const claimEventId =
-    lastEvent && lastEvent.state === 4 && verdict?.[4] ? lastEventId : 0n;
-  const claimStable = lastEvent?.stable;
+  // stable (lowercased) -> latest classified event id (scan is newest-first, so the first hit wins).
+  const eventForStable = new Map<string, bigint>();
+  scanIds.forEach((id, i) => {
+    const ev = evData?.[i * 2]?.result as { state: number; stable: `0x${string}` } | undefined;
+    const vd = evData?.[i * 2 + 1]?.result as readonly [string, number, bigint, bigint, boolean] | undefined;
+    if (ev && ev.state === 4 && vd?.[4]) {
+      const s = ev.stable.toLowerCase();
+      if (!eventForStable.has(s)) eventForStable.set(s, id);
+    }
+  });
+  const claimEventOf = (stable: `0x${string}`) => eventForStable.get(stable.toLowerCase()) ?? 0n;
 
   // Scan minted token ids for the holder's policies.
   const ids = Array.from({ length: Math.max(0, Number(nextTokenId) - 1) }, (_, i) => BigInt(i + 1));
@@ -106,13 +115,17 @@ export default function PoliciesPage() {
     .filter((x): x is { id: bigint; owner: `0x${string}`; pol: Policy } =>
       !!x && !!address && x.owner.toLowerCase() === address.toLowerCase());
 
-  // Per-policy payout quote + vesting for the claimable event.
+  // Per-policy payout quote + vesting against that policy's own stable's classified event. A policy
+  // with no matching event resolves to event 0, whose quote reverts and is ignored (no claim shown).
   const { data: claimData, refetch: refetchClaim } = useReadContracts({
-    contracts: myPolicies.flatMap(({ id }) => [
-      { ...CONTRACTS.treasury, functionName: "quotePayout", args: [claimEventId, id] },
-      { ...CONTRACTS.treasury, functionName: "vestings", args: [claimEventId, id] },
-    ]),
-    query: { enabled: claimEventId > 0n && myPolicies.length > 0, refetchInterval: 6000 },
+    contracts: myPolicies.flatMap(({ id, pol }) => {
+      const ev = claimEventOf(pol.stable);
+      return [
+        { ...CONTRACTS.treasury, functionName: "quotePayout" as const, args: [ev, id] },
+        { ...CONTRACTS.treasury, functionName: "vestings" as const, args: [ev, id] },
+      ];
+    }),
+    query: { enabled: myPolicies.length > 0, refetchInterval: 6000 },
   });
 
   const { writeContract, data: txHash, isPending } = useWriteContract();
@@ -130,10 +143,10 @@ export default function PoliciesPage() {
       writeContract({ ...CONTRACTS.policy, functionName: "buy", args: [insured, notionalWei, termSec] }, { onSettled: after });
     }
   };
-  const settle = (tokenId: bigint) =>
-    writeContract({ ...CONTRACTS.treasury, functionName: "settle", args: [claimEventId, tokenId] }, { onSettled: after });
-  const claimVested = (tokenId: bigint) =>
-    writeContract({ ...CONTRACTS.treasury, functionName: "claimVested", args: [claimEventId, tokenId] }, { onSettled: after });
+  const settle = (eventId: bigint, tokenId: bigint) =>
+    writeContract({ ...CONTRACTS.treasury, functionName: "settle", args: [eventId, tokenId] }, { onSettled: after });
+  const claimVested = (eventId: bigint, tokenId: bigint) =>
+    writeContract({ ...CONTRACTS.treasury, functionName: "claimVested", args: [eventId, tokenId] }, { onSettled: after });
 
   const statusBadge = (s: number) => (s === 1 ? "ok" : s === 2 ? "warn" : s === 3 ? "violet" : "idle");
 
@@ -195,7 +208,14 @@ export default function PoliciesPage() {
 
         {/* Policy NFTs */}
         <div className="section-pad" style={{ display: "grid", gap: 16, alignContent: "start" }}>
-          <h2 className="sec-title" style={{ fontSize: "clamp(22px,2.4vw,32px)" }}>Your policies</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <h2 className="sec-title" style={{ fontSize: "clamp(22px,2.4vw,32px)" }}>Your policies</h2>
+            {isConnected && (
+              <span className="kicker" style={{ color: "var(--off-3)" }}>
+                {myPolicies.length} owned by this wallet · IDs are protocol-wide
+              </span>
+            )}
+          </div>
           {!isConnected ? (
             <span className="muted kicker">connect a wallet to see your coverage</span>
           ) : myPolicies.length === 0 ? (
@@ -205,8 +225,8 @@ export default function PoliciesPage() {
               const payout = claimData?.[i * 2]?.result as bigint | undefined;
               const vesting = claimData?.[i * 2 + 1]?.result as readonly [bigint, bigint, boolean] | undefined;
               const nowS = BigInt(Math.floor(Date.now() / 1000));
-              const claimable =
-                claimEventId > 0n && !!claimStable && pol.stable.toLowerCase() === claimStable.toLowerCase();
+              const ev = claimEventOf(pol.stable);
+              const claimable = ev > 0n;
               return (
                 <div key={id.toString()} className="panel" style={{ padding: 18, display: "grid", gap: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -221,8 +241,8 @@ export default function PoliciesPage() {
                   {claimable && pol.status === 1 && (
                     <>
                       <div className="kv"><span className="k">Payout due</span><span className="v">{fmtWad(payout)} sUSD</span></div>
-                      <button className="pill solid full" onClick={() => settle(id)} disabled={busy}>
-                        {busy ? "Submitting…" : `Claim payout · event #${claimEventId}`}
+                      <button className="pill solid full" onClick={() => settle(ev, id)} disabled={busy}>
+                        {busy ? "Submitting…" : `Claim payout · event #${ev}`}
                       </button>
                     </>
                   )}
@@ -230,7 +250,7 @@ export default function PoliciesPage() {
                     vesting[2] ? (
                       <span className="badge violet">VESTED PAYOUT CLAIMED</span>
                     ) : nowS >= vesting[1] ? (
-                      <button className="pill solid full" onClick={() => claimVested(id)} disabled={busy}>
+                      <button className="pill solid full" onClick={() => claimVested(ev, id)} disabled={busy}>
                         {busy ? "Submitting…" : `Claim vested · ${fmtWad(vesting[0])} sUSD`}
                       </button>
                     ) : (
