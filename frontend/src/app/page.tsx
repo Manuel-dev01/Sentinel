@@ -9,7 +9,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { CONTRACTS, EVENT_STATE, deployment, monitorAssets, hasPoller } from "@/lib/contracts";
+import { CONTRACTS, EVENT_STATE, deployment, monitorAssets, hasPoller, hasSimGateway, operatorAddress } from "@/lib/contracts";
 import { useStable, StableSelector } from "@/lib/stables";
 import { fmtPrice, fmtCompact, fmtBpsPct, deviationBps, timeAgo } from "@/lib/format";
 
@@ -43,7 +43,10 @@ function scenarioOf(url: string | undefined): string {
 }
 
 export default function Dashboard() {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  // The operator (deployer) is the only wallet that can switch the demo scenario (a registry write).
+  // Simulate/Reset are NOT gated — SimGateway makes them permissionless for everyone.
+  const isOperator = isConnected && !!operatorAddress && address?.toLowerCase() === operatorAddress;
   const { selected } = useStable();
   const insured = selected.address;
 
@@ -160,12 +163,15 @@ export default function Dashboard() {
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: txMining } = useWaitForTransactionReceipt({ hash: txHash, query: { enabled: !!txHash } });
 
-  // The poller owns MockPriceOracle once deployed, so operator price writes route through its
-  // passthrough; before the poller exists, write the oracle directly.
+  // Depeg simulation is permissionless via SimGateway (any wallet can trigger it for a demo stable),
+  // so a judge can test self-serve. SimGateway owns the poller and forwards to its price passthrough.
+  // Fallbacks: the poller's operator-only path, then the bare oracle, for older deployments.
   const setPrice = (human: string) => {
     const price = parseEther(human);
     const onSettled = () => setTimeout(() => refetch(), 1500);
-    if (hasPoller) {
+    if (hasSimGateway) {
+      writeContract({ ...CONTRACTS.simGateway, functionName: "simulate", args: [insured, price] }, { onSettled });
+    } else if (hasPoller) {
       writeContract({ ...CONTRACTS.poller, functionName: "operatorSetPrice", args: [insured, price] }, { onSettled });
     } else {
       writeContract({ ...CONTRACTS.priceOracle, functionName: "setPrice", args: [insured, price] }, { onSettled });
@@ -281,12 +287,19 @@ export default function Dashboard() {
                 </button>
                 {!isConnected && (
                   <span className="kicker" style={{ color: "var(--off-3)" }}>
-                    connect the operator wallet to trigger
+                    connect any wallet to trigger
+                  </span>
+                )}
+
+                {/* Scenario switch is a registry write (operator-only); Simulate above is open to all. */}
+                {isConnected && !isOperator && (
+                  <span className="kicker" style={{ color: "var(--off-3)" }}>
+                    cause is operator-set · your wallet can simulate, buy coverage, and claim
                   </span>
                 )}
 
                 {/* Operator demo control: choose the incident the investigation will classify. */}
-                {isConnected && (
+                {isOperator && (
                   <div
                     style={{
                       flexBasis: "100%",

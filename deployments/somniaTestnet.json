@@ -28,7 +28,8 @@
     "policy": "0x142c36b77868d8b735501BB2b1cDA8f27837643e",
     "treasury": "0x056AA4097aED8887C013Ce953b936c03aEA32FeF",
     "oracle": "0xe6d838c0b51e73fAD5F9C06D0fa48FC3C92Aa91c",
-    "poller": "0xA12a1285076512B922Fd2B478E0278764a1066B5"
+    "poller": "0xA12a1285076512B922Fd2B478E0278764a1066B5",
+    "simGateway": "0x46CF6A9F7dA820f5dC12da68b734143f42fc6457"
   },
   "stables": [
     {
@@ -215,6 +216,15 @@
         "0x4190c7Aee1e3e7FD482C3a019441e0Bb3b601a89",
         "0x056AA4097aED8887C013Ce953b936c03aEA32FeF",
         "0xE31b784B34f7F986AA2965c33609e15533E0FE7d",
+        "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
+      ]
+    },
+    {
+      "name": "simGateway",
+      "address": "0x46CF6A9F7dA820f5dC12da68b734143f42fc6457",
+      "contract": "src/SimGateway.sol:SimGateway",
+      "args": [
+        "0xA12a1285076512B922Fd2B478E0278764a1066B5",
         "0xBCA6f82e240C6AC36B23b4f7D21adF17e03966Fe"
       ]
     }

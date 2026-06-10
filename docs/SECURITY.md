@@ -56,6 +56,10 @@ This document records Sentinel's threat model, trust assumptions, and the mitiga
 *Risk:* unauthorized config changes or payouts.
 *Mitigation:* `OPERATOR_ROLE` for configuration and pause; payout pulls restricted to the Treasury through `TREASURY_ROLE` on the Pool; the Treasury's `recordVerdict` callable only by the Oracle through `ORACLE_ROLE`; the Oracle's `handleResponse` gated to the agent platform and `_onEvent` gated to the Reactivity precompile; and no unguarded upgrade or `selfdestruct` paths. The on-chain audit receipts from `getReceipts` are append-only and read-only, so they add no value-moving surface.
 
+### Permissionless depeg simulation (demo surface)
+*Risk:* `SimGateway` makes the price write public so any wallet can trigger a simulated depeg, which could be abused to move a price arbitrarily or to grief the live monitor.
+*Mitigation:* `SimGateway.simulate` is bounded to an operator-curated allow-list and is set only for the demo stables, which are mock test tokens, so no real value is at stake. The four real-price live assets are never allow-listed, so a public call cannot move them or corrupt the autonomous monitor (it reverts `NotSimulatable`). `SimGateway` owns the poller but exposes only the price write publicly; all other poller admin stays operator-only and forwarded, and the operator can reclaim the poller's ownership at any time. It touches neither the Pool nor the Treasury, so it adds no path to funds. The worst case is a cosmetic price nuisance on a mock demo stable during a live demo.
+
 ## 3. Emergency controls
 
 - `Pausable` on the value paths lets the operator halt new policies and payouts if a platform-level issue is detected during an event window.

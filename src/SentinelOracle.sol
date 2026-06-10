@@ -90,9 +90,15 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
     uint256 public constant DEFAULT_PARSE_WEBSITE_AGENT_ID = 12875401142070969085;
     uint256 public constant DEFAULT_LLM_INFERENCE_AGENT_ID = 12847293847561029384;
 
-    /// @notice Natural-language instruction handed to the Parse Website agent (Agent #2).
-    string public constant INVESTIGATE_INSTRUCTION = "Report any exploit, hack, insolvency, bank run, regulatory action, or official incident "
-        "statement affecting this stablecoin's peg or reserves. Be concise and factual.";
+    /// @notice Natural-language instruction handed to the Parse Website agent (Agent #2). Must invite
+    ///         extraction of EVERY cause in the taxonomy, including a minor/recovering technical glitch
+    ///         (a narrow "severe incidents only" prompt makes the agent return empty on a glitch page,
+    ///         so the stage fails and TECHNICAL_GLITCH never classifies).
+    string public constant INVESTIGATE_INSTRUCTION =
+        "Summarize what this page states about the stablecoin current status or incident, including the cause if given. "
+        "Cover exploits, hacks, insolvency, bank runs or redemption surges, regulatory actions, technical glitches, "
+        "oracle or price feed inconsistencies, and routine status notices, even if the issue is minor, transient, or "
+        "already recovering. Report the stated status. Be concise and factual.";
 
     /// @notice Optional system prompt for the classifier (Agent #3). Kept minimal; determinism comes
     ///         from `allowedValues` + chainOfThought=false, not from prompt engineering.
@@ -341,7 +347,7 @@ contract SentinelOracle is SomniaEventHandler, IAgentCallback, Ownable, Reentran
         // the deterministic mock-issuer page always returns a disclosure for the demo.
         investigateParams = InvestigateParams({
             key: "incident",
-            description: "Official incident disclosure affecting the stablecoin's peg or reserves",
+            description: "Official status or incident disclosure affecting the stablecoin peg, reserves, or operation",
             prompt: INVESTIGATE_INSTRUCTION,
             resolveUrl: false,
             numPages: 1,

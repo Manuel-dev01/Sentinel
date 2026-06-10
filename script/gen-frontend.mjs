@@ -22,6 +22,7 @@ const CONTRACTS = {
   SentinelTreasury: "src/SentinelTreasury.sol/SentinelTreasury.json",
   SentinelOracle: "src/SentinelOracle.sol/SentinelOracle.json",
   PriceFeedPoller: "src/PriceFeedPoller.sol/PriceFeedPoller.json",
+  SimGateway: "src/SimGateway.sol/SimGateway.json",
   MockPriceOracle: "src/mocks/MockPriceOracle.sol/MockPriceOracle.json",
   MockStable: "src/mocks/MockStable.sol/MockStable.json",
 };
@@ -47,6 +48,7 @@ const body =
   `export const deployment = ${JSON.stringify(
     {
       chainId: deployment.chainId,
+      operator: deployment.operator,
       subscriptionId: deployment.subscriptionId,
       demoTokenId: deployment.demoTokenId,
       issuerJsonUrl: deployment.issuerJsonUrl,

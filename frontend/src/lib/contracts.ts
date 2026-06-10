@@ -48,6 +48,14 @@ export const CONTRACTS = {
       "0x0000000000000000000000000000000000000000") as `0x${string}`,
     abi: abis.PriceFeedPoller,
   },
+  // Permissionless depeg simulator. Owns the poller and re-exposes `operatorSetPrice` to ANY wallet
+  // for the allow-listed demo stables, so a judge can trigger Simulate self-serve. Optional.
+  simGateway: {
+    address: (process.env.NEXT_PUBLIC_SIM_GATEWAY_ADDRESS ??
+      (A as { simGateway?: string }).simGateway ??
+      "0x0000000000000000000000000000000000000000") as `0x${string}`,
+    abi: abis.SimGateway,
+  },
 } as const;
 
 export { chainId, deployment };
@@ -73,6 +81,13 @@ export const hasPoller =
   !!monitor &&
   monitorAssets.length > 0 &&
   CONTRACTS.poller.address !== "0x0000000000000000000000000000000000000000";
+
+/** True once SimGateway is deployed — depeg simulation is then permissionless for the demo stables. */
+export const hasSimGateway =
+  CONTRACTS.simGateway.address !== "0x0000000000000000000000000000000000000000";
+
+/** Operator address (deployer). Used to gate operator-only UI like the scenario switch. */
+export const operatorAddress = ((deployment as { operator?: string }).operator ?? "").toLowerCase();
 
 /** Insured stablecoins registered at deploy time (synced by gen-frontend.mjs from the artifact). */
 export type Stable = {
